@@ -1,6 +1,6 @@
 {
   "name": "mailwing",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Native multi-provider desktop email client",
   "main": "src/main/index.js",
   "scripts": {
@@ -32,14 +32,22 @@
     "protocols": [
       {
         "name": "Mailwing",
-        "schemes": ["mailto"]
+        "schemes": [
+          "mailto"
+        ]
       }
     ],
     "mac": {
       "category": "public.app-category.productivity",
       "icon": "build/icon.png",
       "target": [
-        { "target": "dmg", "arch": ["x64", "arm64"] }
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
       ]
     },
     "win": {
