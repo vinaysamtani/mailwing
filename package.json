@@ -21,9 +21,13 @@
   "build": {
     "appId": "com.mailwing.app",
     "productName": "Mailwing",
+    "directories": {
+      "output": "dist"
+    },
     "files": [
       "src/**/*",
-      "build/**/*"
+      "build/icon.png",
+      "build/tray-icon.png"
     ],
     "protocols": [
       {

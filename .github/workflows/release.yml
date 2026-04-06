@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write # required for GITHUB_TOKEN to create releases and upload assets
+
+jobs:
+  # ── Build all three platforms in parallel ───────────────────────────────────
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            build_cmd: dist:mac
+            artifact_name: mac-build
+            artifact_path: dist/*.dmg
+          - os: windows-latest
+            build_cmd: dist:win
+            artifact_name: win-build
+            artifact_path: dist/*.exe
+          - os: ubuntu-latest
+            build_cmd: dist:linux
+            artifact_name: linux-build
+            artifact_path: dist/*.AppImage
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run ${{ matrix.build_cmd }} -- --publish never
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: error
+
+  # ── After all builds succeed, create the GitHub Release ────────────────────
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-files
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          body: "See CHANGELOG.md for what's new in this release."
+          files: release-files/*
+          make_latest: true
