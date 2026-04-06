@@ -147,6 +147,9 @@ function createWindow() {
     if (process.platform === 'darwin' && !forceQuit) {
       e.preventDefault();
       mainWin.hide();
+      // macOS removes the dock icon when all windows are hidden, taking the
+      // unread badge with it. Re-pin it so the badge stays visible.
+      if (app.dock) app.dock.show();
     }
   });
 
