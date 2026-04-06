@@ -1,0 +1,249 @@
+'use strict';
+
+/**
+ * Provider registry.
+ *
+ * To add a new provider (e.g. Outlook Web, Fastmail) add a new key here.
+ * No other files need changing.
+ *
+ * Each provider must define:
+ *   id              string     — unique key
+ *   label           string     — display name
+ *   color           string     — CSS hex colour for sidebar accent
+ *   services        Service[]  — ordered list of web apps
+ *   defaultService  string     — service.id to open first
+ *   unreadTitleRegex RegExp    — extracts unread count N from page title
+ *   avatarSelector  string     — CSS selector for the user avatar <img>
+ *   mailtoComposeUrl function  — (rawMailtoUrl: string) => string
+ *   safeDomains     string[]   — domains the ad-blocker must NOT cancel
+ */
+
+const PROVIDERS = {
+  google: {
+    id:    'google',
+    label: 'Google',
+    color: '#4285F4',
+
+    services: [
+      { id: 'mail',     label: 'Gmail',    url: 'https://mail.google.com' },
+      { id: 'calendar', label: 'Calendar', url: 'https://calendar.google.com' },
+      { id: 'drive',    label: 'Drive',    url: 'https://drive.google.com' },
+      { id: 'docs',     label: 'Docs',     url: 'https://docs.google.com' },
+    ],
+
+    defaultService: 'mail',
+
+    // Gmail title: "(3) Inbox - user@gmail.com"  OR  "Inbox (3) - user@gmail.com"
+    // Match count anywhere in the title to handle both formats
+    unreadTitleRegex: /\((\d+)\)/,
+
+    // DOM-based unread poller — runs inside the Gmail page every 30 s as a fallback.
+    // Returns the inbox unread count as a number, or -1 if it can't be determined.
+    unreadScript: `(function(){
+      try {
+        // Gmail: inbox nav link has aria-label like "Inbox, 3 unread conversations"
+        var link = document.querySelector('a[href*="#inbox"][aria-label]');
+        if (link) {
+          var m = link.getAttribute('aria-label').match(/(\\d+)/);
+          if (m) return +m[1];
+        }
+        // Fallback: title
+        var tm = document.title.match(/\\((\\d+)\\)/);
+        if (tm) return +tm[1];
+      } catch(e) {}
+      return -1;
+    })()`,
+
+    // Selector for the avatar image on a logged-in Gmail page
+    avatarSelector: 'a[aria-label*="Google Account"] img, img[data-src*="googleusercontent"]',
+
+    // Compose URL for mailto: links
+    mailtoComposeUrl: (rawUrl) =>
+      `https://mail.google.com/mail/?extsrc=mailto&url=${encodeURIComponent(rawUrl)}`,
+
+    // These domains must never be blocked — Gmail breaks without them
+    safeDomains: [
+      'google.com',
+      'googleapis.com',
+      'gstatic.com',
+      'googleusercontent.com',
+      'accounts.google.com',
+      'mail.google.com',
+      'calendar.google.com',
+      'drive.google.com',
+      'docs.google.com',
+    ],
+  },
+
+  zoho: {
+    id:    'zoho',
+    label: 'Zoho',
+    color: '#E42527',
+
+    services: [
+      { id: 'mail',      label: 'Mail',      url: 'https://mail.zoho.com' },
+      { id: 'calendar',  label: 'Calendar',  url: 'https://calendar.zoho.com' },
+      { id: 'workdrive', label: 'WorkDrive', url: 'https://workdrive.zoho.com' },
+      { id: 'writer',    label: 'Writer',    url: 'https://writer.zoho.com' },
+    ],
+
+    defaultService: 'mail',
+
+    // Zoho Mail title formats vary — try parenthesised count OR bare number at title start
+    unreadTitleRegex: /\((\d+)\)|^(\d+)\s/,
+
+    // DOM-based unread poller — runs inside Zoho Mail every 15 s.
+    // Returns the count as a number, or -1 if no recognised element is found.
+    unreadScript: `(function(){
+      try {
+        // Method 1: Zoho Mail v2 folder-tree — scan all list items for one whose
+        // text starts with "Inbox" and is followed by a number (the unread count).
+        // Zoho renders these as <li> or <div> nodes without aria-labels.
+        var all = document.querySelectorAll('li, [role="treeitem"], [role="listitem"]');
+        for (var i = 0; i < all.length; i++) {
+          var txt = all[i].textContent || '';
+          if (/^\\s*inbox/i.test(txt)) {
+            var m = txt.match(/(\\d+)/);
+            if (m) return +m[1];
+          }
+        }
+        // Method 2: any element whose class contains "zmbadge" (Zoho's CSS-module badge)
+        var badge = document.querySelector('[class*="zmbadge"]');
+        if (badge) {
+          var n = parseInt(badge.textContent.trim(), 10);
+          if (!isNaN(n) && n >= 0) return n;
+        }
+        // Method 3: older Zoho Mail class-based selectors
+        var legacy = ['.zm-unread-count','[data-foldertype="inbox"] .count',
+          '[data-folder-type="0"] .zmMFolderCount','#zmFolderInbox .count','.inbox-count'];
+        for (var j = 0; j < legacy.length; j++) {
+          var el = document.querySelector(legacy[j]);
+          if (el) { var v = parseInt(el.textContent.trim(),10); if (!isNaN(v) && v>=0) return v; }
+        }
+      } catch(e) {}
+      return -1;
+    })()`,
+
+    // Zoho Mail renders the user photo as an <img> loaded from contacts.zoho.com.
+    // The thumbnail (fs=thumb) is the profile picture; the org logo (t=org) is second choice.
+    avatarSelector: 'img[src*="contacts.zoho.com/file?fs=thumb"], img[src*="contacts.zoho.com"]',
+
+    mailtoComposeUrl: (rawUrl) => {
+      try {
+        const parsed  = new URL(rawUrl);
+        const to      = parsed.pathname.replace(/^\//, '');
+        const subject = parsed.searchParams.get('subject') || '';
+        const body    = parsed.searchParams.get('body')    || '';
+        return 'https://mail.zoho.com/zm/#compose'
+          + `?to=${encodeURIComponent(to)}`
+          + `&subject=${encodeURIComponent(subject)}`
+          + `&body=${encodeURIComponent(body)}`;
+      } catch {
+        return 'https://mail.zoho.com';
+      }
+    },
+
+    safeDomains: [
+      'zoho.com',
+      'zohocdn.com',
+      'zohostatic.com',
+      'zohomail.com',
+      'zohopublic.com',
+      'zohoio.com',
+      'mail.zoho.com',
+      'calendar.zoho.com',
+      'workdrive.zoho.com',
+      'writer.zoho.com',
+    ],
+  },
+  outlook: {
+    id:    'outlook',
+    label: 'Outlook',
+    color: '#0078D4',   // Microsoft blue
+
+    services: [
+      { id: 'mail',     label: 'Mail',     url: 'https://outlook.office.com/mail' },
+      { id: 'calendar', label: 'Calendar', url: 'https://outlook.office.com/calendar' },
+      { id: 'onedrive', label: 'OneDrive', url: 'https://onedrive.live.com' },
+      { id: 'people',   label: 'People',   url: 'https://outlook.office.com/people' },
+    ],
+
+    defaultService: 'mail',
+
+    // Outlook Web title: "(3) Mail - user@domain.com - Outlook"
+    unreadTitleRegex: /\((\d+)\)/,
+
+    // DOM-based fallback — handles multiple Outlook Web aria-label formats
+    unreadScript: `(function(){
+      try {
+        // Method 1: aria-label on inbox nav item (multiple Outlook Web formats)
+        var els = document.querySelectorAll('[aria-label]');
+        for (var i = 0; i < els.length; i++) {
+          var label = els[i].getAttribute('aria-label') || '';
+          if (!/inbox/i.test(label)) continue;
+          // "3 unread" / "3 unread conversations"
+          var m = label.match(/(\\d+)\\s*unread/i);
+          if (m) return +m[1];
+          // "unread: 3" or "unread 3"
+          var m2 = label.match(/unread[:\\s]+(\\d+)/i);
+          if (m2) return +m2[1];
+          // "Inbox (3)" or "Inbox 3" — any number after "Inbox"
+          var m3 = label.match(/inbox[^0-9]*(\\d+)/i);
+          if (m3) return +m3[1];
+        }
+        // Method 2: data-automationid / data-unique-id inbox container with badge child
+        var inboxItem = document.querySelector(
+          '[data-automationid*="inbox" i], [data-unique-id*="inbox" i]'
+        );
+        if (inboxItem) {
+          var badge = inboxItem.querySelector(
+            '[aria-label*="unread" i], [class*="count" i], [class*="badge" i]'
+          );
+          if (badge) {
+            var n = parseInt(badge.textContent.trim(), 10);
+            if (!isNaN(n) && n >= 0) return n;
+          }
+        }
+        // Method 3: title fallback
+        var tm = document.title.match(/\\((\\d+)\\)/);
+        if (tm) return +tm[1];
+      } catch(e) {}
+      return -1;
+    })()`,
+
+    // Outlook Web — prioritise the profile/account button img (blob or substrate URL,
+    // accessible without Graph API auth headers), then Fluent UI Persona fallbacks.
+    avatarSelector: 'button[aria-label*="my account" i] img, button[aria-label*="profile" i] img, button[aria-label*="account" i] img, [class*="ms-Persona-image"] img, [class*="ms-Persona"] img, img[src*="graph.microsoft.com"]',
+
+    mailtoComposeUrl: (rawUrl) => {
+      try {
+        const parsed  = new URL(rawUrl);
+        const to      = parsed.pathname.replace(/^\//, '');
+        const subject = parsed.searchParams.get('subject') || '';
+        const body    = parsed.searchParams.get('body')    || '';
+        return 'https://outlook.office.com/mail/deeplink/compose'
+          + `?to=${encodeURIComponent(to)}`
+          + `&subject=${encodeURIComponent(subject)}`
+          + `&body=${encodeURIComponent(body)}`;
+      } catch {
+        return 'https://outlook.office.com/mail';
+      }
+    },
+
+    safeDomains: [
+      'microsoft.com',       // *.microsoft.com — login, graph, cdn, etc.
+      'microsoftonline.com', // login.microsoftonline.com (auth)
+      'office.com',          // outlook.office.com and related
+      'office365.com',       // legacy *.office365.com endpoints
+      'live.com',            // personal accounts, onedrive.live.com
+      'windows.net',         // Azure blob storage (attachments)
+      'msauth.net',          // auth redirects
+      'msecnd.net',          // Microsoft CDN
+      'sharepoint.com',      // OneDrive storage backend
+      'sfx.ms',              // Microsoft CDN
+      'substrate.office.com', // profile photos API
+    ],
+  },
+};
+
+module.exports = { PROVIDERS };

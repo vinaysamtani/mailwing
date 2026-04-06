@@ -1,0 +1,243 @@
+'use strict';
+
+const { app, BrowserWindow, shell, nativeTheme, Menu } = require('electron');
+const path = require('path');
+
+const { PROVIDERS }   = require('../shared/providers');
+const accounts        = require('./accounts');
+const windowState     = require('./windowState');
+const viewManager     = require('./viewManager');
+const notifications   = require('./notifications');
+const tray            = require('./tray');
+const darkMode        = require('./darkMode');
+const ipcHandlers     = require('./ipcHandlers');
+
+// ─── Performance flags ───────────────────────────────────────────────────────
+// Must be set before app is ready.
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+if (process.platform === 'darwin') {
+  app.commandLine.appendSwitch('enable-features', 'Metal');
+}
+
+// ─── Single-instance lock ────────────────────────────────────────────────────
+// On Windows/Linux, a second launch with a mailto: URL fires 'second-instance'
+// on the already-running instance so we can handle the URL there.
+
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+  process.exit(0);
+}
+
+// ─── mailto: protocol ────────────────────────────────────────────────────────
+app.setAsDefaultProtocolClient('mailto');
+
+// ─── Main window ─────────────────────────────────────────────────────────────
+
+const GITHUB_REPO = 'https://github.com/vinaysamtani/mailwing';
+
+let mainWin = null;
+
+function setAppMenu(win) {
+  const { IPC } = require('../shared/constants');
+
+  const helpSubmenu = [
+    {
+      label: 'Report a Bug',
+      accelerator: process.platform === 'darwin' ? 'Cmd+Shift+B' : 'Ctrl+Shift+B',
+      click: () => win.webContents.send(IPC.SHOW_BUG_REPORT),
+    },
+    { type: 'separator' },
+    {
+      label: 'View Existing Issues',
+      click: () => shell.openExternal(`${GITHUB_REPO}/issues`),
+    },
+  ];
+
+  const template = [
+    ...(process.platform === 'darwin' ? [{
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' },
+      ],
+    }] : []),
+    { label: 'Help', submenu: helpSubmenu },
+  ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+function createWindow() {
+  const saved = windowState.restore();
+
+  mainWin = new BrowserWindow({
+    width:   saved.width  || 1280,
+    height:  saved.height || 800,
+    x:       saved.x,
+    y:       saved.y,
+    minWidth:  680,
+    minHeight: 500,
+
+    // macOS: traffic-light buttons overlay the sidebar top-left
+    // x:10 y:14 keeps all three buttons comfortably inside the 72px sidebar
+    titleBarStyle:         process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    trafficLightPosition:  process.platform === 'darwin' ? { x: 10, y: 14 } : undefined,
+
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#1e1e1e' : '#f0f2f5',
+
+    webPreferences: {
+      preload:          path.join(__dirname, '../renderer/preload.js'),
+      contextIsolation: true,
+      nodeIntegration:  false,
+      spellcheck:       false,
+    },
+
+    icon: path.join(__dirname, '../../build/icon.png'),
+    show: false, // shown below after 'ready-to-show'
+  });
+
+  mainWin.loadFile(path.join(__dirname, '../renderer/index.html'));
+
+  mainWin.once('ready-to-show', () => {
+    mainWin.show();
+    if (saved.isMaximized) mainWin.maximize();
+  });
+
+  // Open any links that try to open a new window in the system browser
+  mainWin.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
+
+  // ── Init all modules ────────────────────────────────────────────────────
+  viewManager.init({ win: mainWin, accountsModule: accounts });
+  notifications.init({ accountsModule: accounts, viewManagerModule: viewManager, win: mainWin });
+  tray.init({ win: mainWin, accounts, viewManager });
+  viewManager.setTray(tray); // wire up so broadcastUnread updates dock + menu bar
+  darkMode.init(mainWin);
+  ipcHandlers.register({ win: mainWin, viewManager, accounts, tray });
+  setAppMenu(mainWin);
+
+  // ── Window state persistence ────────────────────────────────────────────
+  let resizeTimer;
+  mainWin.on('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      viewManager.relayout();
+      windowState.save(mainWin);
+    }, 50);
+  });
+
+  mainWin.on('move',  () => windowState.save(mainWin));
+  mainWin.on('close', () => windowState.save(mainWin));
+
+  // ── Restore existing accounts ───────────────────────────────────────────
+  const existing = accounts.getAccounts();
+  if (existing.length > 0) {
+    const first    = existing[0];
+    const provider = PROVIDERS[first.provider];
+    if (provider) {
+      viewManager.showView(first.id, provider.defaultService);
+    }
+  }
+
+  // Pre-load mail views for all other accounts in the background so their
+  // unread pollers start immediately — counts appear without needing to
+  // visit each account manually.
+  viewManager.warmUpMailViews();
+
+  // macOS: re-create if window was closed but dock icon clicked.
+  // Destroy all views so stale BrowserView references don't crash the next createWindow().
+  mainWin.on('closed', () => {
+    viewManager.destroyAllViews();
+    mainWin = null;
+  });;
+}
+
+// ─── App lifecycle ────────────────────────────────────────────────────────────
+
+app.whenReady().then(() => {
+  // macOS: set dock icon explicitly — the BrowserWindow `icon` option only affects
+  // the window chrome, not the dock, in dev mode (no built .app bundle).
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setIcon(path.join(__dirname, '../../build/icon.png'));
+  }
+
+  createWindow();
+
+  app.on('activate', () => {
+    // macOS: bring back window if dock icon is clicked after all windows closed
+    if (!mainWin) {
+      createWindow();
+    } else {
+      mainWin.show();
+      mainWin.focus();
+    }
+  });
+});
+
+app.on('window-all-closed', () => {
+  // On macOS keep the process alive (user can re-open via dock / tray)
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+app.on('before-quit', () => {
+  ipcHandlers.cleanup();
+  tray.destroy();
+});
+
+// ─── mailto: handling ─────────────────────────────────────────────────────────
+
+// macOS: OS fires this when a mailto: link is clicked anywhere
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  handleMailto(url);
+});
+
+// Windows / Linux: fired when a second instance is launched with a mailto: URL
+app.on('second-instance', (_event, argv) => {
+  if (mainWin) {
+    if (mainWin.isMinimized()) mainWin.restore();
+    mainWin.focus();
+  }
+  const mailtoUrl = argv.find(a => a.startsWith('mailto:'));
+  if (mailtoUrl) handleMailto(mailtoUrl);
+});
+
+function handleMailto(rawUrl) {
+  if (!mainWin || mainWin.isDestroyed()) return;
+
+  const accts = accounts.getAccounts();
+  if (!accts.length) return;
+
+  // Use the currently active account, fall back to the first account
+  const activeId = viewManager.getActiveAccountId();
+  const account  = accts.find(a => a.id === activeId) || accts[0];
+  const provider = PROVIDERS[account.provider];
+  if (!provider) return;
+
+  viewManager.showView(account.id, provider.defaultService);
+
+  // Give the view a moment to initialise if it was just created
+  setTimeout(() => {
+    const view = viewManager.getView(account.id, provider.defaultService);
+    if (view && !view.webContents.isDestroyed()) {
+      view.webContents.loadURL(provider.mailtoComposeUrl(rawUrl));
+    }
+  }, 400);
+
+  mainWin.show();
+  mainWin.focus();
+  app.focus({ steal: true });
+}

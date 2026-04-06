@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+*.log
+.DS_Store
+Thumbs.db
+.env
+.claude
+.vscode
+.cursor
+.cursorrules
+.cursorignore

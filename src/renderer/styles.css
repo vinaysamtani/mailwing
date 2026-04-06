@@ -1,0 +1,546 @@
+/* ── CSS variables ────────────────────────────────────────────────────────── */
+:root {
+  --sidebar-width: 72px;
+  --bg:            #f0f2f5;
+  --bg-elevated:   #ffffff;
+  --border:        #d0d5dd;
+  --text:          #344054;
+  --text-muted:    #667085;
+  --icon-active:   #1a73e8;
+  --hover:         rgba(0, 0, 0, 0.06);
+  --divider:       rgba(0, 0, 0, 0.10);
+  --content-bg:    #f8f9fa;
+  --font:          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+[data-theme="dark"] {
+  --bg:          #1e1e1e;
+  --bg-elevated: #2d2d2d;
+  --border:      #3d3d3d;
+  --text:        #e0e0e0;
+  --text-muted:  #9e9e9e;
+  --icon-active: #8ab4f8;
+  --hover:       rgba(255, 255, 255, 0.08);
+  --divider:     rgba(255, 255, 255, 0.10);
+  --content-bg:  #141414;
+}
+
+/* ── Reset ───────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  -webkit-user-select: none;
+  user-select: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Root layout: sidebar + content side by side ─────────────────────────── */
+html, body {
+  width:   100vw;
+  height:  100vh;
+  overflow: hidden;
+  font-family: var(--font);
+  background: var(--bg);
+  display: flex;
+  flex-direction: row;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+#sidebar {
+  width:      var(--sidebar-width);
+  min-width:  var(--sidebar-width);
+  height:     100vh;
+  background: var(--bg);
+  border-right: 1px solid var(--divider);
+  display:    flex;
+  flex-direction: column;
+  align-items: center;
+  padding:    8px 0 12px;
+  position:   relative;
+  z-index:    10;
+
+  /* Make the sidebar a drag handle so the window can be moved
+     by dragging blank areas. Buttons get -webkit-app-region: no-drag below. */
+  -webkit-app-region: drag;
+}
+
+/* macOS: traffic lights sit at (10, 14) — push content below them */
+body.macos #sidebar { padding-top: 46px; }
+
+/* ── Account list ────────────────────────────────────────────────────────── */
+#account-list {
+  display:        flex;
+  flex-direction: column;
+  align-items:    center;
+  gap:            6px;
+  width:          100%;
+  padding:        0 14px;
+  margin-bottom:  6px;
+  -webkit-app-region: no-drag;
+}
+
+/* ── Account avatar button ──────────────────────────────────────────────── */
+.account-btn {
+  position:      relative;
+  width:         42px;
+  height:        42px;
+  border-radius: 50%;
+  border:        2.5px solid transparent;
+  background:    transparent;
+  cursor:        pointer;
+  padding:       0;
+  flex-shrink:   0;
+  transition:    border-color 0.15s ease;
+  -webkit-app-region: no-drag;
+}
+
+.account-btn:hover:not(.active) { border-color: var(--divider); }
+.account-btn.active { border-color: var(--provider-color, var(--icon-active)); }
+
+.account-avatar {
+  width:         38px;
+  height:        38px;
+  border-radius: 50%;
+  object-fit:    cover;
+  display:       block;
+}
+
+.account-initials {
+  width:           38px;
+  height:          38px;
+  border-radius:   50%;
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  font-size:       13px;
+  font-weight:     700;
+  color:           #fff;
+  font-family:     var(--font);
+}
+
+/* ── Unread badge ────────────────────────────────────────────────────────── */
+.unread-badge {
+  position:    absolute;
+  top:         -3px;
+  right:       -6px;
+  min-width:   18px;
+  height:      18px;
+  padding:     0 4px;
+  border-radius: 9px;
+  background:  #d93025;
+  border:      2px solid var(--bg);
+  color:       #fff;
+  font-size:   11px;
+  font-weight: 700;
+  font-family: var(--font);
+  display:     flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  line-height: 1;
+}
+.unread-badge.hidden { display: none; }
+
+/* ── Add account button ──────────────────────────────────────────────────── */
+#add-account-btn {
+  width:         38px;
+  height:        38px;
+  border-radius: 50%;
+  border:        2px dashed var(--divider);
+  background:    transparent;
+  cursor:        pointer;
+  color:         var(--text-muted);
+  font-size:     22px;
+  font-weight:   300;
+  display:       flex;
+  align-items:   center;
+  justify-content: center;
+  padding:       0;
+  margin:        4px 0 6px;
+  flex-shrink:   0;
+  line-height:   1;
+  transition:    border-color 0.15s, color 0.15s, background 0.15s;
+  font-family:   var(--font);
+  -webkit-app-region: no-drag;
+}
+#add-account-btn:hover {
+  border-color: var(--icon-active);
+  color:        var(--icon-active);
+  background:   var(--hover);
+}
+
+/* ── Divider ─────────────────────────────────────────────────────────────── */
+.divider {
+  width:      36px;
+  height:     1px;
+  background: var(--divider);
+  margin:     4px 0;
+  flex-shrink: 0;
+}
+
+/* ── Service list ────────────────────────────────────────────────────────── */
+#service-list {
+  display:        flex;
+  flex-direction: column;
+  align-items:    center;
+  gap:            2px;
+  width:          100%;
+  padding:        0 12px;
+  flex:           1;
+  overflow:       hidden;
+  -webkit-app-region: no-drag;
+}
+
+/* ── Service button ──────────────────────────────────────────────────────── */
+.service-btn {
+  position:        relative;
+  width:           48px;
+  height:          40px;
+  border-radius:   8px;
+  border:          none;
+  background:      transparent;
+  cursor:          pointer;
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  color:           var(--text-muted);
+  transition:      background 0.1s, color 0.1s;
+  -webkit-app-region: no-drag;
+}
+.service-btn:hover            { background: var(--hover); color: var(--text); }
+.service-btn.active           { background: rgba(26, 115, 232, 0.12); color: var(--icon-active); }
+[data-theme="dark"] .service-btn.active { background: rgba(138, 180, 248, 0.15); }
+
+.service-icon-wrap {
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  width:  22px;
+  height: 22px;
+  pointer-events: none;
+}
+.service-icon-wrap svg {
+  width:  22px;
+  height: 22px;
+  fill:   none;
+  stroke: currentColor;
+  stroke-width:    1.6;
+  stroke-linecap:  round;
+  stroke-linejoin: round;
+}
+
+/* Tooltip on hover — stays within sidebar by using a right-side popout */
+.service-label {
+  position:   absolute;
+  left:       54px;
+  top:        50%;
+  transform:  translateY(-50%) translateX(-4px);
+  background: var(--bg-elevated);
+  color:      var(--text);
+  font-size:  12px;
+  white-space: nowrap;
+  padding:    5px 10px;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  border:     1px solid var(--border);
+  pointer-events: none;
+  opacity:    0;
+  transition: opacity 0.15s, transform 0.15s;
+  font-family: var(--font);
+  z-index:    500;
+}
+.service-btn:hover .service-label {
+  opacity:   1;
+  transform: translateY(-50%) translateX(0);
+}
+
+/* ── Right content area (visible when no BrowserView is active) ───────────── */
+#content-area {
+  flex:       1;
+  height:     100vh;
+  display:    flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--content-bg);
+  overflow:   hidden;
+}
+
+/* ── Welcome / onboarding screen ─────────────────────────────────────────── */
+#welcome-screen {
+  display:     flex;
+  flex-direction: column;
+  align-items: center;
+  gap:         12px;
+  text-align:  center;
+  padding:     40px;
+  max-width:   380px;
+}
+#welcome-screen.hidden { display: none; }
+
+.welcome-icon {
+  font-size:   56px;
+  line-height: 1;
+  margin-bottom: 4px;
+  -webkit-user-select: none;
+}
+
+.welcome-title {
+  font-size:   22px;
+  font-weight: 600;
+  color:       var(--text);
+  font-family: var(--font);
+}
+
+.welcome-sub {
+  font-size:  14px;
+  color:      var(--text-muted);
+  font-family: var(--font);
+  margin-top: -4px;
+}
+
+.welcome-providers {
+  display:        flex;
+  flex-direction: column;
+  gap:            10px;
+  width:          100%;
+  margin-top:     8px;
+}
+
+.welcome-provider-btn {
+  display:         flex;
+  align-items:     center;
+  gap:             10px;
+  padding:         12px 20px;
+  border-radius:   10px;
+  border:          1.5px solid var(--border);
+  background:      var(--bg-elevated);
+  cursor:          pointer;
+  font-size:       14px;
+  font-weight:     500;
+  font-family:     var(--font);
+  color:           var(--text);
+  transition:      background 0.12s, border-color 0.12s, transform 0.1s;
+  text-align:      left;
+  -webkit-app-region: no-drag;
+}
+.welcome-provider-btn:hover {
+  border-color: var(--icon-active);
+  background:   var(--hover);
+  transform:    translateY(-1px);
+}
+.welcome-provider-btn:active { transform: translateY(0); }
+
+.welcome-provider-dot {
+  width:         12px;
+  height:        12px;
+  border-radius: 50%;
+  flex-shrink:   0;
+}
+
+.welcome-hint {
+  font-size:  12px;
+  color:      var(--text-muted);
+  font-family: var(--font);
+  margin-top: 4px;
+}
+.welcome-hint strong { font-weight: 600; color: var(--text); }
+
+/* ── Provider badge: small circle bottom-right of each account avatar ────── */
+.provider-badge {
+  position:        absolute;
+  bottom:          -3px;
+  right:           -3px;
+  width:           19px;
+  height:          19px;
+  border-radius:   50%;
+  border:          2px solid var(--bg);
+  color:           #fff;
+  font-size:       10px;
+  font-weight:     800;
+  font-family:     var(--font);
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  pointer-events:  none;
+  line-height:     1;
+  letter-spacing:  0;
+}
+
+/* ── Drag-to-reorder visual states ──────────────────────────────────────── */
+.account-btn.dragging {
+  opacity:    0.35;
+  transform:  scale(0.92);
+}
+.account-btn.drag-over {
+  transform:   scale(1.12);
+  box-shadow:  0 0 0 2.5px var(--provider-color, var(--icon-active));
+  border-color: transparent !important;
+  transition:  transform 0.1s, box-shadow 0.1s;
+}
+
+/* ── Sidebar bottom: bug report button ──────────────────────────────────── */
+.sidebar-bottom {
+  margin-top:  auto;
+  padding-top: 8px;
+  display:     flex;
+  flex-direction: column;
+  align-items: center;
+  -webkit-app-region: no-drag;
+}
+
+#report-bug-btn {
+  width:         34px;
+  height:        34px;
+  border-radius: 50%;
+  border:        1.5px solid var(--divider);
+  background:    transparent;
+  cursor:        pointer;
+  color:         var(--text-muted);
+  display:       flex;
+  align-items:   center;
+  justify-content: center;
+  padding:       0;
+  margin-bottom: 4px;
+  flex-shrink:   0;
+  transition:    border-color 0.15s, color 0.15s, background 0.15s;
+  -webkit-app-region: no-drag;
+}
+#report-bug-btn svg {
+  width:  16px;
+  height: 16px;
+  pointer-events: none;
+}
+#report-bug-btn:hover {
+  border-color: var(--icon-active);
+  color:        var(--icon-active);
+  background:   var(--hover);
+}
+
+/* ── Bug report modal ───────────────────────────────────────────────────── */
+.modal-backdrop {
+  position:   fixed;
+  inset:      0;
+  z-index:    1000;
+  background: rgba(0, 0, 0, 0.45);
+  display:    flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-app-region: no-drag;
+}
+.modal-backdrop.hidden { display: none; }
+
+.modal-dialog {
+  background:   var(--bg-elevated);
+  border:       1px solid var(--border);
+  border-radius: 14px;
+  padding:      24px;
+  width:        460px;
+  max-width:    90vw;
+  max-height:   88vh;
+  overflow-y:   auto;
+  display:      flex;
+  flex-direction: column;
+  gap:          10px;
+  box-shadow:   0 8px 40px rgba(0, 0, 0, 0.28);
+}
+
+.modal-title {
+  font-size:   16px;
+  font-weight: 600;
+  color:       var(--text);
+  font-family: var(--font);
+  margin-bottom: 2px;
+}
+
+.modal-label {
+  font-size:   11px;
+  font-weight: 600;
+  color:       var(--text-muted);
+  font-family: var(--font);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  margin-bottom: -4px;
+}
+
+.modal-input,
+.modal-textarea {
+  background:   var(--bg);
+  border:       1px solid var(--border);
+  border-radius: 8px;
+  padding:      8px 12px;
+  color:        var(--text);
+  font-family:  var(--font);
+  font-size:    13px;
+  width:        100%;
+  resize:       vertical;
+  outline:      none;
+  transition:   border-color 0.15s;
+  -webkit-user-select: text;
+  user-select:  text;
+}
+.modal-input:focus,
+.modal-textarea:focus {
+  border-color: var(--icon-active);
+}
+
+.modal-textarea        { min-height: 72px; }
+.modal-textarea.modal-textarea-sm { min-height: 52px; }
+
+.modal-sysinfo {
+  font-size:   11px;
+  color:       var(--text-muted);
+  background:  var(--bg);
+  border:      1px solid var(--border);
+  border-radius: 6px;
+  padding:     8px 12px;
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  line-height: 1.5;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.modal-actions {
+  display:     flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top:  4px;
+}
+
+.modal-btns {
+  display: flex;
+  gap:     8px;
+}
+
+.modal-link {
+  font-size:   12px;
+  color:       var(--icon-active);
+  text-decoration: none;
+  font-family: var(--font);
+  -webkit-user-select: none;
+  user-select: none;
+}
+.modal-link:hover { text-decoration: underline; }
+
+.modal-btn {
+  border:       none;
+  border-radius: 8px;
+  padding:      7px 16px;
+  font-size:    13px;
+  font-weight:  500;
+  font-family:  var(--font);
+  cursor:       pointer;
+  transition:   background 0.12s, opacity 0.12s;
+}
+
+.modal-btn-cancel {
+  background: var(--hover);
+  color:      var(--text);
+  border:     1px solid var(--border);
+}
+.modal-btn-cancel:hover { background: var(--border); }
+
+.modal-btn-submit {
+  background: var(--icon-active);
+  color:      #fff;
+}
+.modal-btn-submit:hover { opacity: 0.88; }

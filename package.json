@@ -1,0 +1,50 @@
+{
+  "name": "mailwing",
+  "version": "1.0.0",
+  "description": "Native multi-provider desktop email client",
+  "main": "src/main/index.js",
+  "scripts": {
+    "start": "electron .",
+    "postinstall": "node scripts/generate-icons.js",
+    "dist": "electron-builder",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux"
+  },
+  "dependencies": {
+    "electron-store": "^8.2.0"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.mailwing.app",
+    "productName": "Mailwing",
+    "files": [
+      "src/**/*",
+      "build/**/*"
+    ],
+    "protocols": [
+      {
+        "name": "Mailwing",
+        "schemes": ["mailto"]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png",
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] }
+      ]
+    },
+    "win": {
+      "icon": "build/icon.png",
+      "target": "nsis"
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "target": "AppImage"
+    }
+  }
+}
