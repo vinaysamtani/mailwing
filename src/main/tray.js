@@ -7,6 +7,7 @@ let tray            = null;
 let mainWin         = null;
 let accountsModule  = null;
 let viewManagerMod  = null;
+let lastUnreadTotal = 0;
 
 function init({ win, accounts, viewManager }) {
   mainWin        = win;
@@ -71,6 +72,7 @@ function updateContextMenu() {
  */
 function updateBadge(totalUnread) {
   if (!tray) return;
+  lastUnreadTotal = totalUnread;
 
   if (process.platform === 'darwin') {
     // Dock icon badge (red bubble)
@@ -82,6 +84,15 @@ function updateBadge(totalUnread) {
   tray.setToolTip(totalUnread > 0 ? `Mailwing (${totalUnread} unread)` : 'Mailwing');
 }
 
+/**
+ * Re-apply the last known badge value.
+ * Call this after app.dock.show() resolves — macOS resets the badge
+ * when the dock icon is removed and re-added.
+ */
+function reapplyBadge() {
+  updateBadge(lastUnreadTotal);
+}
+
 function destroy() {
   if (tray) {
     tray.destroy();
@@ -89,4 +100,4 @@ function destroy() {
   }
 }
 
-module.exports = { init, updateBadge, updateContextMenu, destroy };
+module.exports = { init, updateBadge, reapplyBadge, updateContextMenu, destroy };

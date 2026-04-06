@@ -148,8 +148,9 @@ function createWindow() {
       e.preventDefault();
       mainWin.hide();
       // macOS removes the dock icon when all windows are hidden, taking the
-      // unread badge with it. Re-pin it so the badge stays visible.
-      if (app.dock) app.dock.show();
+      // unread badge with it. Re-pin it and re-apply the badge once the
+      // Promise resolves (the icon reappears fresh with no badge otherwise).
+      if (app.dock) app.dock.show().then(() => tray.reapplyBadge());
     }
   });
 
