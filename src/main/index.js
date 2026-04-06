@@ -37,7 +37,8 @@ app.setAsDefaultProtocolClient('mailto');
 
 const GITHUB_REPO = 'https://github.com/vinaysamtani/mailwing';
 
-let mainWin = null;
+let mainWin    = null;
+let forceQuit  = false; // set to true by before-quit so the close handler lets the window go
 
 function setAppMenu(win) {
   const { IPC } = require('../shared/constants');
@@ -137,8 +138,17 @@ function createWindow() {
     }, 50);
   });
 
-  mainWin.on('move',  () => windowState.save(mainWin));
-  mainWin.on('close', () => windowState.save(mainWin));
+  mainWin.on('move', () => windowState.save(mainWin));
+
+  // On macOS: hide instead of close so the tray and dock can restore the window.
+  // forceQuit is set by before-quit (tray → Quit), which lets the window actually close.
+  mainWin.on('close', (e) => {
+    windowState.save(mainWin);
+    if (process.platform === 'darwin' && !forceQuit) {
+      e.preventDefault();
+      mainWin.hide();
+    }
+  });
 
   // ── Restore existing accounts ───────────────────────────────────────────
   const existing = accounts.getAccounts();
@@ -155,12 +165,11 @@ function createWindow() {
   // visit each account manually.
   viewManager.warmUpMailViews();
 
-  // macOS: re-create if window was closed but dock icon clicked.
-  // Destroy all views so stale BrowserView references don't crash the next createWindow().
+  // Fires only on actual quit (forceQuit = true on macOS, or close on Windows/Linux).
   mainWin.on('closed', () => {
     viewManager.destroyAllViews();
     mainWin = null;
-  });;
+  });
 }
 
 // ─── App lifecycle ────────────────────────────────────────────────────────────
@@ -193,6 +202,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  forceQuit = true;
   ipcHandlers.cleanup();
   tray.destroy();
 });
