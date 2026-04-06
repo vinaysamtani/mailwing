@@ -13,8 +13,9 @@ Thank you for taking the time to contribute! This document covers everything you
 5. [Testing your changes](#5-testing-your-changes)
 6. [Committing](#6-committing)
 7. [Submitting a pull request](#7-submitting-a-pull-request)
-8. [Reporting bugs](#8-reporting-bugs)
-9. [Requesting features](#9-requesting-features)
+8. [Releasing a new version](#8-releasing-a-new-version)
+9. [Reporting bugs](#9-reporting-bugs)
+10. [Requesting features](#10-requesting-features)
 
 ---
 
@@ -156,7 +157,63 @@ git commit -m "feat: add Fastmail provider"
 
 ---
 
-## 8. Reporting bugs
+## 8. Releasing a new version
+
+> This section is for maintainers with push access to `main`.
+
+### Step 1 — Update `CHANGELOG.md`
+
+Add a new section at the top (below the `# Changelog` header) following the existing format:
+
+```markdown
+## [1.1.0] - YYYY-MM-DD
+
+### Added
+- …
+
+### Fixed
+- …
+
+### Changed
+- …
+```
+
+Commit this change to `main` before tagging.
+
+### Step 2 — Bump the version
+
+```bash
+npm version <major|minor|patch>   # e.g. npm version patch → 1.0.1
+# This updates package.json and creates a local git tag automatically.
+```
+
+Or set an explicit version:
+
+```bash
+npm version 1.1.0
+```
+
+### Step 3 — Push the commit and tag
+
+```bash
+git push origin main        # push the version bump commit
+git push origin v1.1.0      # push the tag — this triggers the release workflow
+```
+
+### What happens next
+
+The `release.yml` GitHub Actions workflow fires automatically:
+
+1. Three parallel **Build** jobs run on macOS, Windows, and Ubuntu (≈ 8–15 min total).
+2. Once all three pass, a **Create GitHub Release** job publishes the release and attaches the `.dmg`, `.exe`, and `.AppImage` files.
+
+Monitor progress at: `github.com/vinaysamtani/mailwing/actions`
+
+The finished release appears at: `github.com/vinaysamtani/mailwing/releases`
+
+---
+
+## 9. Reporting bugs
 
 Open a [GitHub issue](../../issues/new) and include:
 
@@ -168,7 +225,7 @@ Open a [GitHub issue](../../issues/new) and include:
 
 ---
 
-## 9. Requesting features
+## 10. Requesting features
 
 Open a [GitHub issue](../../issues/new) describing:
 
