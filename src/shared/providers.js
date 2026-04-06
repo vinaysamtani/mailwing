@@ -176,44 +176,77 @@ const PROVIDERS = {
     // DOM-based fallback — handles multiple Outlook Web aria-label formats
     unreadScript: `(function(){
       try {
-        // Method 1: aria-label on inbox nav item (multiple Outlook Web formats)
+        // Method 1: aria-label on any element containing "inbox" + a number
         var els = document.querySelectorAll('[aria-label]');
         for (var i = 0; i < els.length; i++) {
           var label = els[i].getAttribute('aria-label') || '';
           if (!/inbox/i.test(label)) continue;
-          // "3 unread" / "3 unread conversations"
-          var m = label.match(/(\\d+)\\s*unread/i);
-          if (m) return +m[1];
-          // "unread: 3" or "unread 3"
-          var m2 = label.match(/unread[:\\s]+(\\d+)/i);
-          if (m2) return +m2[1];
-          // "Inbox (3)" or "Inbox 3" — any number after "Inbox"
-          var m3 = label.match(/inbox[^0-9]*(\\d+)/i);
-          if (m3) return +m3[1];
+          var m  = label.match(/(\\d+)\\s*unread/i);   if (m)  return +m[1];
+          var m2 = label.match(/unread[:\\s]+(\\d+)/i); if (m2) return +m2[1];
+          var m3 = label.match(/inbox[^0-9]*(\\d+)/i);  if (m3) return +m3[1];
         }
-        // Method 2: data-automationid / data-unique-id inbox container with badge child
+        // Method 2: data-automationid / data-unique-id inbox container → badge child
         var inboxItem = document.querySelector(
           '[data-automationid*="inbox" i], [data-unique-id*="inbox" i]'
         );
         if (inboxItem) {
-          var badge = inboxItem.querySelector(
-            '[aria-label*="unread" i], [class*="count" i], [class*="badge" i]'
-          );
-          if (badge) {
-            var n = parseInt(badge.textContent.trim(), 10);
-            if (!isNaN(n) && n >= 0) return n;
+          var badge = inboxItem.querySelector('[aria-label*="unread" i], [class*="count"], [class*="badge"]');
+          if (badge) { var n = parseInt(badge.textContent.trim(), 10); if (!isNaN(n) && n >= 0) return n; }
+          // New Outlook: unread count is a plain text node next to folder name
+          var txt = inboxItem.textContent || '';
+          var mc = txt.match(/(\\d+)/g);
+          if (mc && mc.length === 1) return +mc[0];
+        }
+        // Method 3: New Outlook Web (2024) — folder tree nodes with counter spans
+        var nodes = document.querySelectorAll('[data-testid*="Folder"], [data-testid*="folder"], li[role="treeitem"]');
+        for (var k = 0; k < nodes.length; k++) {
+          var node = nodes[k];
+          var nodeLabel = node.getAttribute('aria-label') || node.textContent || '';
+          if (!/inbox/i.test(nodeLabel)) continue;
+          // Look for a numeric counter element inside the node
+          var counter = node.querySelector('[data-testid*="count" i], [data-testid*="badge" i], span[title]');
+          if (counter) { var cv = parseInt(counter.textContent.trim(), 10); if (!isNaN(cv) && cv > 0) return cv; }
+          // Or a bare number span inside the node
+          var spans = node.querySelectorAll('span');
+          for (var s = 0; s < spans.length; s++) {
+            var sv = parseInt(spans[s].textContent.trim(), 10);
+            if (!isNaN(sv) && sv > 0 && spans[s].textContent.trim() === String(sv)) return sv;
           }
         }
-        // Method 3: title fallback
+        // Method 4: title fallback "(3) Mail - Outlook"
         var tm = document.title.match(/\\((\\d+)\\)/);
         if (tm) return +tm[1];
       } catch(e) {}
       return -1;
     })()`,
 
-    // Outlook Web — prioritise the profile/account button img (blob or substrate URL,
-    // accessible without Graph API auth headers), then Fluent UI Persona fallbacks.
-    avatarSelector: 'button[aria-label*="my account" i] img, button[aria-label*="profile" i] img, button[aria-label*="account" i] img, [class*="ms-Persona-image"] img, [class*="ms-Persona"] img, img[src*="graph.microsoft.com"]',
+    // Outlook Web — profile button img (blob/substrate URL, no Graph API headers needed)
+    // then Fluent UI Persona fallbacks. Listed most-specific → least-specific.
+    avatarSelector: [
+      'button[aria-label*="your profile" i] img',
+      'button[aria-label*="account manager" i] img',
+      'button[aria-label*="my account" i] img',
+      'button[aria-label*="profile" i] img',
+      'button[aria-label*="account" i] img',
+      '[data-testid*="ProfilePhoto"] img',
+      '[data-testid*="avatar" i] img',
+      '[class*="Persona"] img[src]',
+      '[class*="ms-Persona"] img[src]',
+      'img[src*="graph.microsoft.com"]',
+      'img[src*="substrate.office.com"]',
+    ].join(', '),
+
+    // Injected into the Outlook mail view after load.
+    // Hides the reading pane so the layout is two-column (folders + message list),
+    // matching Gmail / Zoho. Uses stable aria/data attributes rather than hashed class names.
+    mailCSS: `
+      [aria-label="Reading Pane"],
+      [data-testid="ReadingPane"],
+      [data-app-section="ReadingPane"],
+      #ReadingPaneContainerId {
+        display: none !important;
+      }
+    `,
 
     mailtoComposeUrl: (rawUrl) => {
       try {

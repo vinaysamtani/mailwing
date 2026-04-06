@@ -92,11 +92,16 @@ function createView(accountId, serviceId) {
     return { action: 'deny' };
   });
 
-  // Mail views: track unread count and extract avatar
+  // Mail views: track unread count, extract avatar, and inject provider CSS overrides
   if (serviceId === 'mail') {
     attachTitleWatcher(view, accountId, provider);
     attachUnreadPoller(view, accountId, provider);
     attachAvatarExtractor(view, accountId, provider, sess);
+    if (provider.mailCSS) {
+      view.webContents.on('did-finish-load', () => {
+        view.webContents.insertCSS(provider.mailCSS).catch(() => {});
+      });
+    }
   }
 
   views.set(viewKey(accountId, serviceId), view);
