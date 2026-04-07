@@ -53,6 +53,7 @@ async function init() {
   }
 
   buildWelcomeScreen();
+  buildProviderPicker();
   renderSidebar();
 
   // ── Push events ────────────────────────────────────────────────────────────
@@ -87,7 +88,14 @@ function buildWelcomeScreen() {
   cachedProviders.forEach(p => {
     const btn = document.createElement('button');
     btn.className = 'welcome-provider-btn';
-    btn.innerHTML = `<span class="welcome-provider-dot" style="background:${p.color}"></span>Add ${p.label} Account`;
+
+    const dot = document.createElement('span');
+    dot.className = 'welcome-provider-dot';
+    dot.style.background = p.color;
+    dot.textContent = p.label[0].toUpperCase();
+
+    btn.appendChild(dot);
+    btn.appendChild(document.createTextNode(`Add ${p.label} Account`));
     btn.addEventListener('click', () => window.mailwing.addAccount(p.id));
     container.appendChild(btn);
   });
@@ -100,11 +108,88 @@ function syncWelcomeScreen() {
   ws.classList.toggle('hidden', cachedAccounts.length > 0);
 }
 
+// ─── Sidebar empty-state hint ─────────────────────────────────────────────────
+function syncSidebarHint() {
+  const hint   = document.getElementById('sidebar-hint');
+  const addBtn = document.getElementById('add-account-btn');
+  const isEmpty = cachedAccounts.length === 0;
+
+  hint.classList.toggle('hidden', !isEmpty);
+
+  if (isEmpty) {
+    // Align hint vertically with the centre of the + button
+    const rect = addBtn.getBoundingClientRect();
+    hint.style.top = `${rect.top + rect.height / 2 - hint.offsetHeight / 2}px`;
+  }
+}
+
+// ─── Provider picker popup ────────────────────────────────────────────────────
+let pickerOpen = false;
+
+function buildProviderPicker() {
+  const list = document.getElementById('provider-picker-list');
+  list.innerHTML = '';
+
+  cachedProviders.forEach(p => {
+    const btn = document.createElement('button');
+    btn.className   = 'provider-picker-item';
+    btn.role        = 'menuitem';
+
+    const icon = document.createElement('span');
+    icon.className        = 'provider-picker-icon';
+    icon.style.background = p.color;
+    icon.textContent      = p.label[0].toUpperCase();
+
+    const label = document.createElement('span');
+    label.textContent = `Add ${p.label} Account`;
+
+    btn.appendChild(icon);
+    btn.appendChild(label);
+    btn.addEventListener('click', () => {
+      closeProviderPicker();
+      window.mailwing.addAccount(p.id);
+    });
+    list.appendChild(btn);
+  });
+}
+
+function openProviderPicker() {
+  if (pickerOpen) return;
+  pickerOpen = true;
+
+  const addBtn = document.getElementById('add-account-btn');
+  const picker = document.getElementById('provider-picker');
+  const rect   = addBtn.getBoundingClientRect();
+
+  picker.style.left = `${rect.right + 8}px`;
+  picker.style.top  = `${rect.top}px`;
+
+  document.getElementById('provider-picker-backdrop').classList.remove('hidden');
+  picker.classList.remove('hidden');
+
+  // Ensure picker fits in viewport vertically
+  const pickerRect = picker.getBoundingClientRect();
+  if (pickerRect.bottom > window.innerHeight - 8) {
+    picker.style.top = `${window.innerHeight - pickerRect.height - 8}px`;
+  }
+
+  window.mailwing.overlayMode(true);
+}
+
+function closeProviderPicker() {
+  if (!pickerOpen) return;
+  pickerOpen = false;
+  document.getElementById('provider-picker-backdrop').classList.add('hidden');
+  document.getElementById('provider-picker').classList.add('hidden');
+  window.mailwing.overlayMode(false);
+}
+
 // ─── Sidebar render ───────────────────────────────────────────────────────────
 function renderSidebar() {
   renderAccountList();
   renderServiceList();
   syncWelcomeScreen();
+  syncSidebarHint();
 }
 
 function renderAccountList() {
@@ -372,9 +457,13 @@ function handleKeydown(e) {
 }
 
 // ─── Wire up DOM ──────────────────────────────────────────────────────────────
-// "+" button: trigger native OS popup menu (always on top of BrowserViews)
+// "+" button: open custom HTML provider picker
 document.getElementById('add-account-btn')
-  .addEventListener('click', () => window.mailwing.showAddAccountMenu());
+  .addEventListener('click', () => openProviderPicker());
+
+// Provider picker backdrop: close on click outside
+document.getElementById('provider-picker-backdrop')
+  .addEventListener('click', () => closeProviderPicker());
 
 // Bug report: sidebar button, modal actions, backdrop click
 document.getElementById('report-bug-btn')

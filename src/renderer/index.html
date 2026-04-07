@@ -13,6 +13,7 @@
   <aside id="sidebar">
     <div id="account-list"></div>
     <button id="add-account-btn" title="Add account" aria-label="Add account">+</button>
+    <div id="sidebar-hint" class="hidden" aria-hidden="true">Add your first account</div>
     <div class="divider"></div>
     <div id="service-list"></div>
     <div class="sidebar-bottom">
@@ -67,6 +68,13 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Provider picker popup (replaces native OS add-account menu) -->
+  <div id="provider-picker-backdrop" class="hidden"></div>
+  <div id="provider-picker" class="hidden" role="menu" aria-label="Add account">
+    <div class="provider-picker-title">Add account</div>
+    <div id="provider-picker-list"></div>
   </div>
 
   <script src="renderer.js"></script>
