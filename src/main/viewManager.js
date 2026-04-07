@@ -237,7 +237,8 @@ function attachAvatarExtractor(view, accountId, provider, sess) {
              var el = document.querySelector(sels[i].trim());
              if (!el) continue;
              var img = (el.tagName === 'IMG') ? el : el.querySelector('img');
-             if (img && img.complete && img.naturalWidth > 0) {
+             if (!img) continue;
+             if (img.complete && img.naturalWidth > 0) {
                try {
                  var sz = Math.min(Math.max(img.naturalWidth, img.naturalHeight, 32), 128);
                  var canvas = document.createElement('canvas');
@@ -245,11 +246,13 @@ function attachAvatarExtractor(view, accountId, provider, sess) {
                  canvas.getContext('2d').drawImage(img, 0, 0, sz, sz);
                  return canvas.toDataURL('image/jpeg', 0.85);
                } catch(e) {
-                 // CORS taint — return raw src for net.fetch fallback
-                 var s = img.src || img.dataset.src || img.getAttribute('src') || '';
-                 if (s.startsWith('http')) return s;
+                 // CORS taint — fall through to src URL for net.fetch
                }
              }
+             // Image in DOM but not rendered yet (or CORS-tainted) — return the src
+             // URL so the main process can fetch it via session cookies.
+             var src = img.getAttribute('src') || img.src || (img.dataset && img.dataset.src) || img.getAttribute('data-original') || '';
+             if (src.startsWith('http')) return src;
            }
            // background-image fallback (Zoho, CSS-based avatars)
            for (var j = 0; j < sels.length; j++) {
@@ -297,10 +300,10 @@ function attachAvatarExtractor(view, accountId, provider, sess) {
   };
 
   // Schedule multiple retry attempts after load — Zoho Mail's profile image
-  // only appears in the DOM at ~15 s (SPA renders asynchronously).
+  // only appears in the DOM at ~15–30 s (SPA renders asynchronously).
   // Also retry 3 s after each in-page navigation (Zoho fires these as it routes).
   view.webContents.on('did-finish-load', () => {
-    [8000, 15000, 25000].forEach(d => setTimeout(tryExtract, d));
+    [8000, 15000, 25000, 45000].forEach(d => setTimeout(tryExtract, d));
   });
   view.webContents.on('did-navigate-in-page', () => setTimeout(tryExtract, 3000));
 }

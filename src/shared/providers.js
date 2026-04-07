@@ -124,9 +124,17 @@ const PROVIDERS = {
       return -1;
     })()`,
 
-    // Zoho Mail renders the user photo as an <img> loaded from contacts.zoho.com.
-    // The thumbnail (fs=thumb) is the profile picture; the org logo (t=org) is second choice.
-    avatarSelector: 'img[src*="contacts.zoho.com/file?fs=thumb"], img[src*="contacts.zoho.com"]',
+    // Zoho Mail renders the user photo as an <img> loaded from contacts.zoho.com
+    // (or regional variants: contacts.zoho.in, contacts.zohoeu.com, etc.).
+    // Accept any Zoho contacts subdomain to handle all regional data centres.
+    avatarSelector: [
+      'img[src*="contacts.zoho.com/file"]',
+      'img[src*="contacts.zoho.in/file"]',
+      'img[src*="contacts.zohoeu.com/file"]',
+      'img[src*="contacts.zoho.com.au/file"]',
+      'img[src*="contacts.zoho.jp/file"]',
+      'img[src*="contacts.zoho"]',
+    ].join(', '),
 
     mailtoComposeUrl: (rawUrl) => {
       try {
