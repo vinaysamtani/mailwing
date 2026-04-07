@@ -1,9 +1,14 @@
-name: Release
+name: Build & Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*.*.*'
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write # required for GITHUB_TOKEN to create releases and upload assets
@@ -20,14 +25,17 @@ jobs:
         include:
           - os: macos-latest
             build_cmd: dist:mac
+            build_args: --arch universal
             artifact_name: mac-build
             artifact_path: dist/*.dmg
           - os: windows-latest
             build_cmd: dist:win
+            build_args: ""
             artifact_name: win-build
             artifact_path: dist/*.exe
           - os: ubuntu-latest
             build_cmd: dist:linux
+            build_args: ""
             artifact_name: linux-build
             artifact_path: dist/*.AppImage
 
@@ -44,8 +52,35 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
+            libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 \
+            libgbm1 libasound2 xvfb
+
       - name: Build
-        run: npm run ${{ matrix.build_cmd }} -- --publish never
+        run: npm run ${{ matrix.build_cmd }} -- --publish never ${{ matrix.build_args }}
+
+      - name: Smoke test – app launch (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          set +e
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x800x24" \
+            npx electron --no-sandbox . &
+          APP_PID=$!
+          sleep 8
+          kill "$APP_PID" 2>/dev/null
+          wait "$APP_PID" 2>/dev/null
+          EXIT_CODE=$?
+          # Killed processes return 143 (SIGTERM) which is expected
+          if [ "$EXIT_CODE" -ne 0 ] && [ "$EXIT_CODE" -ne 143 ]; then
+            echo "Smoke test: app exited unexpectedly with code $EXIT_CODE"
+            exit 1
+          fi
+          echo "Smoke test passed (app launched and ran for 8 s)"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -54,11 +89,12 @@ jobs:
           path: ${{ matrix.artifact_path }}
           if-no-files-found: error
 
-  # ── After all builds succeed, create the GitHub Release ────────────────────
+  # ── After all builds succeed, create the GitHub Release (tags only) ─────────
   release:
     name: Create GitHub Release
     needs: build
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
 
     steps:
       - name: Download all build artifacts
