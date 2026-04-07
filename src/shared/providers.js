@@ -277,6 +277,213 @@ const PROVIDERS = {
       'substrate.office.com', // profile photos API
     ],
   },
+  fastmail: {
+    id:    'fastmail',
+    label: 'Fastmail',
+    color: '#1A1A2E',
+
+    services: [
+      { id: 'mail',     label: 'Mail',     url: 'https://app.fastmail.com/mail' },
+      { id: 'calendar', label: 'Calendar', url: 'https://app.fastmail.com/calendar' },
+      { id: 'contacts', label: 'Contacts', url: 'https://app.fastmail.com/contacts' },
+    ],
+
+    defaultService: 'mail',
+
+    // Fastmail title: "(3) Inbox - user@fastmail.com - Fastmail"
+    unreadTitleRegex: /\((\d+)\)/,
+
+    // DOM-based unread poller — runs inside Fastmail every 30 s.
+    unreadScript: `(function(){
+      try {
+        // Fastmail uses aria-label on the inbox nav item
+        var els = document.querySelectorAll('[aria-label]');
+        for (var i = 0; i < els.length; i++) {
+          var label = els[i].getAttribute('aria-label') || '';
+          if (!/inbox/i.test(label)) continue;
+          var m = label.match(/(\\d+)/);
+          if (m) return +m[1];
+        }
+        // Fallback: title
+        var tm = document.title.match(/\\((\\d+)\\)/);
+        if (tm) return +tm[1];
+      } catch(e) {}
+      return -1;
+    })()`,
+
+    // Fastmail renders avatar in the top-right account button
+    avatarSelector: 'img[alt*="profile" i], img[alt*="avatar" i], [class*="Avatar"] img, [class*="avatar"] img',
+
+    mailtoComposeUrl: (rawUrl) => {
+      try {
+        const parsed  = new URL(rawUrl);
+        const to      = parsed.pathname.replace(/^\//, '');
+        const subject = parsed.searchParams.get('subject') || '';
+        const body    = parsed.searchParams.get('body')    || '';
+        return 'https://app.fastmail.com/mail/drafts/?to=' + encodeURIComponent(to)
+          + '&subject=' + encodeURIComponent(subject)
+          + '&body=' + encodeURIComponent(body);
+      } catch {
+        return 'https://app.fastmail.com/mail';
+      }
+    },
+
+    safeDomains: [
+      'fastmail.com',
+      'fastmail.fm',
+      'fastmail.net',
+      'app.fastmail.com',
+      'static.fastmailusercontent.com',
+    ],
+  },
+
+  yahoo: {
+    id:    'yahoo',
+    label: 'Yahoo Mail',
+    color: '#6001D2',
+
+    services: [
+      { id: 'mail',     label: 'Mail',     url: 'https://mail.yahoo.com' },
+      { id: 'calendar', label: 'Calendar', url: 'https://calendar.yahoo.com' },
+    ],
+
+    defaultService: 'mail',
+
+    // Yahoo Mail title: "(3) Yahoo Mail - user@yahoo.com"
+    unreadTitleRegex: /\((\d+)\)/,
+
+    // DOM-based unread poller — runs inside Yahoo Mail every 30 s.
+    unreadScript: `(function(){
+      try {
+        // Yahoo Mail inbox nav item
+        var els = document.querySelectorAll('[data-test-id="inbox-link"], [href*="#Inbox"], [class*="Nav"] [class*="count"]');
+        for (var i = 0; i < els.length; i++) {
+          var txt = els[i].textContent || '';
+          var m = txt.match(/(\\d+)/);
+          if (m) return +m[1];
+        }
+        // aria-label approach
+        var labels = document.querySelectorAll('[aria-label*="inbox" i]');
+        for (var j = 0; j < labels.length; j++) {
+          var lab = labels[j].getAttribute('aria-label') || '';
+          var lm = lab.match(/(\\d+)/);
+          if (lm) return +lm[1];
+        }
+        // Fallback: title
+        var tm = document.title.match(/\\((\\d+)\\)/);
+        if (tm) return +tm[1];
+      } catch(e) {}
+      return -1;
+    })()`,
+
+    // Yahoo Mail profile avatar
+    avatarSelector: 'img[data-test-id="Avatar"], [class*="Avatar"] img, img[src*="yahoo.com"][alt]',
+
+    mailtoComposeUrl: (rawUrl) => {
+      try {
+        const parsed  = new URL(rawUrl);
+        const to      = parsed.pathname.replace(/^\//, '');
+        const subject = parsed.searchParams.get('subject') || '';
+        const body    = parsed.searchParams.get('body')    || '';
+        return 'https://compose.mail.yahoo.com/?to=' + encodeURIComponent(to)
+          + '&subject=' + encodeURIComponent(subject)
+          + '&body=' + encodeURIComponent(body);
+      } catch {
+        return 'https://mail.yahoo.com';
+      }
+    },
+
+    safeDomains: [
+      'yahoo.com',
+      'yahooapis.com',
+      'yimg.com',
+      'yql.yahoo.com',
+      'mail.yahoo.com',
+      'calendar.yahoo.com',
+    ],
+  },
+
+  proton: {
+    id:    'proton',
+    label: 'ProtonMail',
+    color: '#6D4AFF',
+
+    services: [
+      { id: 'mail',     label: 'Mail',     url: 'https://mail.proton.me' },
+      { id: 'calendar', label: 'Calendar', url: 'https://calendar.proton.me' },
+      { id: 'drive',    label: 'Drive',    url: 'https://drive.proton.me' },
+    ],
+
+    defaultService: 'mail',
+
+    // ProtonMail title: "(3) Inbox | ProtonMail"  — uses parenthesised count or bare count
+    // Proton may also use "3 unread" in some contexts; try both patterns.
+    unreadTitleRegex: /\((\d+)\)|^(\d+)\s/,
+
+    // DOM-based unread poller — runs inside Proton Mail every 30 s.
+    // Proton's web app is a React SPA; class names are hashed, so we rely on
+    // data attributes and aria roles wherever possible.
+    unreadScript: `(function(){
+      try {
+        // Method 1: Proton sidebar folder item for Inbox
+        var items = document.querySelectorAll('[data-testid="navigation-link:inbox"], [href*="/inbox"]');
+        for (var i = 0; i < items.length; i++) {
+          var txt = items[i].textContent || '';
+          var m = txt.match(/(\\d+)/);
+          if (m) return +m[1];
+        }
+        // Method 2: aria-label on nav items containing "inbox"
+        var els = document.querySelectorAll('[aria-label]');
+        for (var j = 0; j < els.length; j++) {
+          var lab = els[j].getAttribute('aria-label') || '';
+          if (!/inbox/i.test(lab)) continue;
+          var lm = lab.match(/(\\d+)/);
+          if (lm) return +lm[1];
+        }
+        // Method 3: Proton renders unread count as a <span> next to the folder name
+        var allItems = document.querySelectorAll('[class*="folder"], [class*="Folder"]');
+        for (var k = 0; k < allItems.length; k++) {
+          var content = allItems[k].textContent || '';
+          if (!/inbox/i.test(content)) continue;
+          var cm = content.match(/(\\d+)/);
+          if (cm) return +cm[1];
+        }
+        // Method 4: title fallback "(3) Inbox | ProtonMail"
+        var tm = document.title.match(/\\((\\d+)\\)/);
+        if (tm) return +tm[1];
+      } catch(e) {}
+      return -1;
+    })()`,
+
+    // Proton account avatar (top-right header button)
+    avatarSelector: '[data-testid="heading:userdropdown"] img, [class*="UserDropdown"] img, [aria-label*="account" i] img',
+
+    mailtoComposeUrl: (rawUrl) => {
+      try {
+        const parsed  = new URL(rawUrl);
+        const to      = parsed.pathname.replace(/^\//, '');
+        const subject = parsed.searchParams.get('subject') || '';
+        const body    = parsed.searchParams.get('body')    || '';
+        return 'https://mail.proton.me/u/0/inbox#mailto='
+          + encodeURIComponent('mailto:' + to
+            + (subject ? '?subject=' + encodeURIComponent(subject) : '')
+            + (body ? (subject ? '&' : '?') + 'body=' + encodeURIComponent(body) : ''));
+      } catch {
+        return 'https://mail.proton.me';
+      }
+    },
+
+    safeDomains: [
+      'proton.me',
+      'protonmail.com',
+      'protonmail.ch',
+      'proton.ch',
+      'mail.proton.me',
+      'calendar.proton.me',
+      'drive.proton.me',
+      'account.proton.me',
+    ],
+  },
 };
 
 module.exports = { PROVIDERS };
