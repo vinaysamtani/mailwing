@@ -7,14 +7,27 @@ Mailwing wraps Gmail, Zoho Mail, and Outlook Web — along with their companion 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Electron](https://img.shields.io/badge/Electron-33-47848F?logo=electron&logoColor=white)](https://www.electronjs.org/)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)]()
+[![CI](https://github.com/vinaysamtani/mailwing/actions/workflows/release.yml/badge.svg)](https://github.com/vinaysamtani/mailwing/actions/workflows/release.yml)
+[![Latest Release](https://img.shields.io/github/v/release/vinaysamtani/mailwing)](https://github.com/vinaysamtani/mailwing/releases/latest)
+
+---
+
+## Download
+
+| Platform | Link |
+|---|---|
+| **macOS** (Universal – Intel + Apple Silicon) | [Download .dmg](https://github.com/vinaysamtani/mailwing/releases/latest) |
+| **Windows** | [Download .exe](https://github.com/vinaysamtani/mailwing/releases/latest) |
+| **Linux** | [Download .AppImage](https://github.com/vinaysamtani/mailwing/releases/latest) |
+| **Homebrew** (macOS) | `brew install --cask vinaysamtani/mailwing/mailwing` |
+
+All releases are built automatically by CI on every tag push — see [Releases](https://github.com/vinaysamtani/mailwing/releases).
 
 ---
 
 ## Screenshot
 
 ![Mailwing](docs/screenshot.png)
-
-> _Replace `docs/screenshot.png` with an actual screenshot. Run `npm start` to see the app._
 
 ---
 
@@ -49,7 +62,7 @@ Mailwing wraps Gmail, Zoho Mail, and Outlook Web — along with their companion 
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/your-username/mailwing.git
+git clone https://github.com/vinaysamtani/mailwing.git
 cd mailwing
 
 # 2. Install dependencies
