@@ -59,9 +59,14 @@ jobs:
           sudo apt-get install -y \
             libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
             libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 \
-            libgbm1 libasound2 xvfb
+            libgbm1 xvfb
+          # libasound2 was renamed to libasound2t64 in Ubuntu 22.04+
+          sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2
 
       - name: Build
+        env:
+          # Disable macOS code signing — no certificates in CI
+          CSC_IDENTITY_AUTO_DISCOVERY: false
         run: npm run ${{ matrix.build_cmd }} -- --publish never ${{ matrix.build_args }}
 
       - name: Smoke test – app launch (Linux only)
