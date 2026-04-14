@@ -25,7 +25,7 @@ jobs:
         include:
           - os: macos-latest
             build_cmd: dist:mac
-            build_args: --arch universal
+            build_args: --universal
             artifact_name: mac-build
             artifact_path: dist/*.dmg
           - os: windows-latest
