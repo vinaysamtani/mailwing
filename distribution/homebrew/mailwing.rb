@@ -1,9 +1,6 @@
 cask "mailwing" do
-  version "1.0.1"
-
-  # Update sha256 after each release:
-  #   curl -L <dmg-url> | shasum -a 256
-  sha256 :no_check
+  version "1.1.0"
+  sha256 "931806ffb8968f2af84afefa12605fd3a40aec60d75cd0864a8ad59c8417b030"
 
   url "https://github.com/vinaysamtani/mailwing/releases/download/v#{version}/Mailwing-#{version}-universal.dmg"
   name "Mailwing"

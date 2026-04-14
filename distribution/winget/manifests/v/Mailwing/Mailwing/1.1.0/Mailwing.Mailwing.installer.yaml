@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
 PackageIdentifier: Mailwing.Mailwing
-PackageVersion: 1.0.1
+PackageVersion: 1.1.0
 Platform:
   - Windows.Desktop
 InstallModes:
@@ -9,7 +9,7 @@ InstallModes:
 Installers:
   - Architecture: x64
     InstallerType: nullsoft
-    InstallerUrl: https://github.com/vinaysamtani/mailwing/releases/download/v1.0.1/Mailwing.Setup.1.0.1.exe
-    InstallerSha256: 3c7872eb7adfb029007a613f5e6f2bd394e7b2ec24e336d452fb4ef37f17c2ec
+    InstallerUrl: https://github.com/vinaysamtani/mailwing/releases/download/v1.1.0/Mailwing.Setup.1.1.0.exe
+    InstallerSha256: 72f3e902a3a5d78d74b72ef75b624333fe98245052c7f099b35934be31adda8a
 ManifestType: installer
 ManifestVersion: 1.6.0
