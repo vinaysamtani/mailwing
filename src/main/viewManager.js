@@ -86,10 +86,35 @@ function createView(accountId, serviceId) {
 
   view.webContents.loadURL(service.url);
 
-  // Open popups/new windows in the system browser
+  // Open popups/new windows in the system browser, except for auth-origin
+  // popups which must stay in-app to share the account's session cookies.
+  // Passkey challenges and OAuth flows open child windows that need access
+  // to the same cookies/auth state as the parent page.
   view.webContents.setWindowOpenHandler(({ url }) => {
-    require('electron').shell.openExternal(url);
-    return { action: 'deny' };
+    let isAuthOrigin = false;
+    try {
+      const { hostname } = new URL(url);
+      isAuthOrigin = provider.safeDomains.some(
+        d => hostname === d || hostname.endsWith('.' + d)
+      );
+    } catch { /* invalid URL — fall through to system browser */ }
+
+    if (!isAuthOrigin) {
+      require('electron').shell.openExternal(url);
+      return { action: 'deny' };
+    }
+
+    // Allow in-app with the same isolated session so auth state is shared.
+    return {
+      action: 'allow',
+      overrideBrowserWindowOptions: {
+        webPreferences: {
+          session:          sess,
+          contextIsolation: true,
+          nodeIntegration:  false,
+        },
+      },
+    };
   });
 
   // Mail views: track unread count, extract avatar, and inject provider CSS overrides

@@ -90,10 +90,23 @@ function attachAdBlocker(sess, providerConfig) {
  * Deny Web Notifications permission so Gmail/Zoho don't double-fire them.
  * We raise our own Electron-native Notification objects from the main process.
  * All other permissions (media, clipboard-read, etc.) are allowed.
+ *
+ * Also sets the synchronous pre-flight check handler required by Electron 33+
+ * for WebAuthn/passkeys. Without setPermissionCheckHandler returning true for
+ * publickey-credentials-*, Chromium blocks the WebAuthn call before the page
+ * ever sees it and the passkey UI silently never appears.
  */
 function attachNotificationPermission(sess) {
   sess.setPermissionRequestHandler((_webContents, permission, callback) => {
     callback(permission !== 'notifications');
+  });
+
+  sess.setPermissionCheckHandler((_webContents, permission) => {
+    if (permission === 'publickey-credentials-get' ||
+        permission === 'publickey-credentials-create') {
+      return true;
+    }
+    return permission !== 'notifications';
   });
 }
 
