@@ -96,6 +96,10 @@ body.macos #sidebar { padding-top: 46px; }
 
 .account-btn:hover:not(.active) { border-color: var(--divider); }
 .account-btn.active { border-color: var(--provider-color, var(--icon-active)); }
+/* Always show provider brand color as a subtle ring; brighten on hover/active */
+.account-btn.has-provider-ring { border-color: color-mix(in srgb, var(--provider-color, var(--divider)) 45%, transparent); }
+.account-btn.has-provider-ring:hover:not(.active) { border-color: color-mix(in srgb, var(--provider-color, var(--divider)) 70%, transparent); }
+.account-btn.has-provider-ring.active { border-color: var(--provider-color, var(--icon-active)); }
 
 .account-avatar {
   width:         38px;
@@ -353,26 +357,7 @@ body.macos #sidebar { padding-top: 46px; }
 }
 .welcome-hint strong { font-weight: 600; color: var(--text); }
 
-/* ── Provider badge: small circle bottom-right of each account avatar ────── */
-.provider-badge {
-  position:        absolute;
-  bottom:          -3px;
-  right:           -3px;
-  width:           19px;
-  height:          19px;
-  border-radius:   50%;
-  border:          2px solid var(--bg);
-  color:           #fff;
-  font-size:       10px;
-  font-weight:     800;
-  font-family:     var(--font);
-  display:         flex;
-  align-items:     center;
-  justify-content: center;
-  pointer-events:  none;
-  line-height:     1;
-  letter-spacing:  0;
-}
+
 
 /* ── Drag-to-reorder visual states ──────────────────────────────────────── */
 .account-btn.dragging {

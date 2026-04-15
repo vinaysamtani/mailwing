@@ -226,14 +226,8 @@ function renderAccountList() {
       btn.appendChild(circle);
     }
 
-    // ── Provider badge: small circle bottom-right showing "G" / "Z" etc. ─
-    if (provider) {
-      const badge = document.createElement('span');
-      badge.className   = 'provider-badge';
-      badge.textContent = provider.label[0].toUpperCase();
-      badge.style.background = provider.color;
-      btn.appendChild(badge);
-    }
+    // ── Provider color ring: always-on border in brand color ─────────────
+    btn.classList.add('has-provider-ring');
 
     // ── Unread count badge ────────────────────────────────────────────────
     const unreadBadge = document.createElement('span');
