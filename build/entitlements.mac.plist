@@ -2,10 +2,15 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <!-- Required for sandboxed Electron apps -->
+  <!-- Required for Electron's V8 JIT and heap -->
   <key>com.apple.security.cs.allow-jit</key>
   <true/>
   <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+  <!-- Required so macOS allows the Electron Framework (signed by GitHub) to load
+       alongside app code signed by the developer certificate. Without this the
+       hardened runtime rejects the bundled dylibs and the app crashes on launch. -->
+  <key>com.apple.security.cs.disable-library-validation</key>
   <true/>
   <!-- Required for Touch ID / platform passkeys on notarised builds -->
   <key>com.apple.developer.public-key-credential</key>
