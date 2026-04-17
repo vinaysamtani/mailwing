@@ -249,9 +249,28 @@ function handleMailto(rawUrl) {
   const accts = accounts.getAccounts();
   if (!accts.length) return;
 
-  // Use the currently active account, fall back to the first account
-  const activeId = viewManager.getActiveAccountId();
-  const account  = accts.find(a => a.id === activeId) || accts[0];
+  // Single account: open immediately without a picker
+  if (accts.length === 1) {
+    openMailtoInAccount(accts[0], rawUrl);
+    return;
+  }
+
+  // Multiple accounts: show native OS account-picker menu
+  const template = accts.map((account, index) => {
+    const provider = PROVIDERS[account.provider];
+    const label = account.email
+      ? `${account.email}${provider ? ' (' + provider.label + ')' : ''}`
+      : `${provider?.label ?? account.provider} Account ${index + 1}`;
+    return { label, click: () => openMailtoInAccount(account, rawUrl) };
+  });
+
+  mainWin.show();
+  mainWin.focus();
+  app.focus({ steal: true });
+  Menu.buildFromTemplate(template).popup({ window: mainWin });
+}
+
+function openMailtoInAccount(account, rawUrl) {
   const provider = PROVIDERS[account.provider];
   if (!provider) return;
 
