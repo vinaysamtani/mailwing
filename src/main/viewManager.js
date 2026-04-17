@@ -86,6 +86,13 @@ function createView(accountId, serviceId) {
 
   view.webContents.loadURL(service.url);
 
+  // Gracefully recover from renderer crashes — reload to the service's home URL
+  // rather than leaving a dead, blank view that can corrupt main-process state.
+  view.webContents.on('render-process-gone', (_event, _details) => {
+    if (view.webContents.isDestroyed()) return;
+    try { view.webContents.loadURL(service.url); } catch { /* already destroyed */ }
+  });
+
   // Open popups/new windows in the system browser, except for auth-origin
   // popups which must stay in-app to share the account's session cookies.
   // Passkey challenges and OAuth flows open child windows that need access
@@ -153,10 +160,14 @@ function attachTitleWatcher(view, accountId, provider) {
     }
 
     // ── Email extraction ─────────────────────────────────────────────────
-    const emailMatch = title.match(/\b([\w.+%-]+@[\w.-]+\.[a-z]{2,})\b/i);
-    if (emailMatch) {
-      const stored = accounts.getAccounts().find(a => a.id === accountId);
-      if (stored && stored.email !== emailMatch[1]) {
+    // Only discover the account email once (when it is not yet set). After
+    // that, stop updating from titles so that a compose-window title like
+    // "Re: Hi - recipient@example.com" never overwrites the account email
+    // with the recipient's address.
+    const stored = accounts.getAccounts().find(a => a.id === accountId);
+    if (stored && !stored.email) {
+      const emailMatch = title.match(/\b([\w.+%-]+@[\w.-]+\.[a-z]{2,})\b/i);
+      if (emailMatch) {
         accounts.updateAccount(accountId, { email: emailMatch[1] });
         if (mainWin && !mainWin.isDestroyed()) {
           mainWin.webContents.send(IPC.ACCOUNTS_UPDATED, accounts.getAccounts());
