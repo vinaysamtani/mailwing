@@ -25,6 +25,33 @@ All releases are built automatically by CI on every tag push — see [Releases](
 
 ---
 
+## macOS — first-launch security prompt
+
+Because Mailwing is an open-source project distributed outside the Mac App Store and without an Apple Developer certificate, macOS Gatekeeper will block it from opening directly by double-click.
+
+**To open the app (one-time only):**
+
+**Option 1 — Right-click (easiest)**
+1. Right-click (or Control-click) the `Mailwing.dmg` or `Mailwing.app`
+2. Choose **Open** from the context menu
+3. Click **Open** in the dialog that appears
+4. macOS remembers this choice — subsequent launches work normally
+
+**Option 2 — Privacy & Security settings**
+1. Try to open the app normally — macOS will block it and show an alert
+2. Open **System Settings → Privacy & Security**
+3. Scroll down to the "Security" section and click **Open Anyway**
+4. Authenticate if prompted
+
+**Option 3 — Terminal (advanced)**
+```bash
+xattr -rd com.apple.quarantine /Applications/Mailwing.app
+```
+
+> This is expected behaviour for unsigned apps distributed outside the Mac App Store. It is a one-time step — the app opens normally on every subsequent launch.
+
+---
+
 ## Screenshot
 
 ![Mailwing](docs/screenshot.png)
