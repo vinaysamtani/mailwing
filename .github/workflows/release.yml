@@ -65,8 +65,19 @@ jobs:
 
       - name: Build
         env:
-          # Disable macOS code signing — no certificates in CI
+          # Signing: CSC_LINK overrides keychain discovery; empty on PRs = unsigned build.
+          # Required GitHub secrets (set in repo Settings → Secrets → Actions):
+          #   APPLE_CERTIFICATE            - base64-encoded Developer ID Application .p12
+          #   APPLE_CERTIFICATE_PASSWORD   - password for the .p12
+          #   APPLE_ID                     - Apple Developer account email
+          #   APPLE_APP_SPECIFIC_PASSWORD  - app-specific password from appleid.apple.com
+          #   APPLE_TEAM_ID                - 10-char Team ID from developer.apple.com/account
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          CSC_LINK: ${{ secrets.APPLE_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: npm run ${{ matrix.build_cmd }} -- --publish never ${{ matrix.build_args }}
 
       - name: Smoke test – app launch (Linux only)

@@ -15,6 +15,7 @@
     "electron-store": "^8.2.0"
   },
   "devDependencies": {
+    "@electron/notarize": "^2.5.0",
     "electron": "^33.0.0",
     "electron-builder": "^25.0.0"
   },
@@ -42,6 +43,7 @@
       "icon": "build/icon.png",
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
+      "afterSign": "scripts/notarize.js",
       "target": [
         {
           "target": "dmg"
