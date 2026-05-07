@@ -83,6 +83,9 @@ jobs:
         # in that case so the macOS build is unsigned and continues. When a real
         # certificate IS configured, the conditional drops the override and signing
         # proceeds normally.
+        # `shell: bash` is needed on Windows — the default PowerShell runner can't
+        # parse the conditional. Git Bash is bundled on the windows-latest image.
+        shell: bash
         run: |
           EXTRA=""
           if [ "${{ runner.os }}" = "macOS" ] && [ -z "$CSC_LINK" ]; then
