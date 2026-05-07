@@ -1,6 +1,6 @@
 cask "mailwing" do
-  version "1.2.0"
-  sha256 "6ad90f065217a000069a171560697f06edb7fff7ad00243ebf125929e6f14498"
+  version "1.2.1"
+  sha256 "7258414df2e7d8515aa549939b9111d7104a017bd0b909f30b05e87ffe558fef"
 
   url "https://github.com/vinaysamtani/mailwing/releases/download/v#{version}/Mailwing-#{version}-universal.dmg"
   name "Mailwing"
