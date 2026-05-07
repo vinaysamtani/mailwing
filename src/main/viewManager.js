@@ -26,6 +26,17 @@ let activeKey = null;
 const UPDATE_BANNER_HEIGHT = 36; // matches #update-banner height in styles.css
 let bannerVisible = false;
 
+// Subdomain patterns used by every provider's sign-in / auth flow. The
+// post-popup-close handler reloads the parent BrowserView only when a popup
+// has touched one of these — so calendar-invite RSVP popups, "compose in new
+// window", and passkey ceremonies that don't redirect through an auth host
+// don't unnecessarily reload the user's mailbox.
+//   accounts.google.com / accounts.zoho.com — Google, Zoho
+//   account.proton.me                       — Proton (singular, hence accounts?)
+//   login.microsoftonline.com / login.live.com / login.yahoo.com
+//   signin.* / auth.* / oauth.* — generic fallbacks for less-common providers
+const AUTH_HOST_PATTERN = /^(accounts?|login|signin|auth|oauth)\./i;
+
 // ─── Init ────────────────────────────────────────────────────────────────────
 
 function init({ win, accountsModule }) {
@@ -148,33 +159,25 @@ function createView(accountId, serviceId) {
 
   // After an auth popup closes (post-login, post-passkey), the parent view is
   // often still on the signed-out landing page. Reload it so the inbox appears
-  // without requiring an app restart. Gate on safeDomain so unrelated popups
-  // (which shouldn't reach here, but defensive) don't trigger a reload.
+  // without requiring an app restart. Only fire when the popup actually visited
+  // an auth host — otherwise routine popups (calendar-invite RSVP, compose in
+  // new window) would trigger spurious mailbox reloads on close.
   let reloadingFromPopup = false;
   view.webContents.on('did-create-window', (childWin, details) => {
-    // Diagnostic — confirm the popup is genuinely sharing the parent's session.
-    // Remove once the calendar-invite re-login bug is verified fixed.
-    try {
-      console.log('[diag-popup]', {
-        accountId,
-        url: details && details.url,
-        sameSession: childWin.webContents.session === sess,
-      });
-    } catch {}
-
-    let lastUrl = (details && details.url) || '';
-    const trackUrl = (_e, url) => { if (url) lastUrl = url; };
+    let sawAuthHost = false;
+    const checkHost = (rawUrl) => {
+      try {
+        const h = new URL(rawUrl).hostname;
+        if (AUTH_HOST_PATTERN.test(h)) sawAuthHost = true;
+      } catch {}
+    };
+    if (details && details.url) checkHost(details.url);
+    const trackUrl = (_e, url) => { if (url) checkHost(url); };
     childWin.webContents.on('did-navigate',            trackUrl);
     childWin.webContents.on('did-redirect-navigation', trackUrl);
     childWin.on('closed', () => {
       if (reloadingFromPopup) return;
-      let host = '';
-      try { host = new URL(lastUrl || childWin.webContents?.getURL?.() || '').hostname; } catch {}
-      if (!host) return;
-      const isAuthHost = provider.safeDomains.some(
-        d => host === d || host.endsWith('.' + d)
-      );
-      if (!isAuthHost) return;
+      if (!sawAuthHost) return;
       if (!view || !view.webContents || view.webContents.isDestroyed()) return;
       reloadingFromPopup = true;
       try { view.webContents.reload(); } catch {}

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-05-07
+
+### Fixed
+- Closing in-app popups (calendar-invite RSVPs, compose-in-new-window, passkey ceremonies that don't redirect through an auth host) no longer reloads the active mailbox. The post-popup-close reload — added in 1.2.0 to recover from "stuck on signed-out landing page" — now only fires when the popup actually visited a sign-in host (`accounts.*`, `login.*`, `signin.*`, `auth.*`, `oauth.*`). Sign-in flows still trigger the parent reload as before.
+- Removed a leftover `[diag-popup]` `console.log` that was added during the v1.2.0 calendar-invite investigation and printed on every popup creation.
+
 ## [1.2.0] - 2026-05-07
 
 ### Added
