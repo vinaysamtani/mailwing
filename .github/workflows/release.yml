@@ -78,7 +78,17 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: npm run ${{ matrix.build_cmd }} -- --publish never ${{ matrix.build_args }}
+        # When APPLE_CERTIFICATE is unset, electron-builder still treats the empty
+        # CSC_LINK as "sign with this empty path" and fails. Force `mac.identity=null`
+        # in that case so the macOS build is unsigned and continues. When a real
+        # certificate IS configured, the conditional drops the override and signing
+        # proceeds normally.
+        run: |
+          EXTRA=""
+          if [ "${{ runner.os }}" = "macOS" ] && [ -z "$CSC_LINK" ]; then
+            EXTRA="-c.mac.identity=null"
+          fi
+          npm run ${{ matrix.build_cmd }} -- --publish never ${{ matrix.build_args }} $EXTRA
 
       - name: Smoke test – app launch (Linux only)
         if: runner.os == 'Linux'
