@@ -1,6 +1,6 @@
 {
   "name": "mailwing",
-  "version": "1.1.4",
+  "version": "1.2.0",
   "description": "Native multi-provider desktop email client",
   "main": "src/main/index.js",
   "scripts": {

@@ -4,6 +4,7 @@ const { ipcMain, nativeTheme, Menu, BrowserWindow, app, shell } = require('elect
 const os = require('os');
 const { IPC }       = require('../shared/constants');
 const { PROVIDERS } = require('../shared/providers');
+const notes         = require('./notes');
 
 let registered = false;
 
@@ -11,7 +12,7 @@ let registered = false;
  * Register all IPC handlers.
  * Must be called once after BrowserWindow, viewManager, accounts, and tray are ready.
  */
-function register({ win, viewManager, accounts, tray }) {
+function register({ win, viewManager, accounts, tray, updateChecker }) {
   if (registered) return;
   registered = true;
 
@@ -133,6 +134,56 @@ function register({ win, viewManager, accounts, tray }) {
   ipcMain.on(IPC.OVERLAY_MODE, (_e, { open }) => {
     if (open) viewManager.hideActiveView();
     else      viewManager.revealActiveView();
+  });
+
+  // Renderer tells main when the update banner is taking up its top row, so
+  // the BrowserView can be shifted down to leave the banner visible.
+  ipcMain.on(IPC.BANNER_VISIBLE, (_e, { open }) => {
+    viewManager.setBannerVisible(open);
+  });
+
+  // ── Notes / Todo ─────────────────────────────────────────────────────────
+  // Personal scratch list — global, not per-account. Persisted in notes.json.
+
+  const broadcastNotes = () => {
+    if (!win.isDestroyed()) win.webContents.send(IPC.NOTES_UPDATED, notes.getNotes());
+  };
+
+  ipcMain.handle(IPC.GET_NOTES, () => notes.getNotes());
+
+  ipcMain.handle(IPC.ADD_NOTE, (_e, { text }) => {
+    const id = notes.addNote(text);
+    broadcastNotes();
+    return id;
+  });
+
+  ipcMain.handle(IPC.TOGGLE_NOTE, (_e, { id }) => {
+    notes.toggleNote(id);
+    broadcastNotes();
+  });
+
+  ipcMain.handle(IPC.REMOVE_NOTE, (_e, { id }) => {
+    notes.removeNote(id);
+    broadcastNotes();
+  });
+
+  ipcMain.handle(IPC.UPDATE_NOTE, (_e, { id, patch }) => {
+    notes.updateNote(id, patch);
+    broadcastNotes();
+  });
+
+  // ── Update notifications ─────────────────────────────────────────────────
+  // The banner UI calls these from the renderer when the user clicks Download
+  // or Dismiss. Notification-only: no auto-download (would need code signing).
+
+  ipcMain.on(IPC.DISMISS_UPDATE, (_e, { version }) => {
+    if (updateChecker) updateChecker.dismiss(version);
+  });
+
+  ipcMain.on(IPC.OPEN_RELEASE_PAGE, (_e, { url }) => {
+    if (typeof url === 'string' && /^https:\/\//.test(url)) {
+      shell.openExternal(url);
+    }
   });
 }
 

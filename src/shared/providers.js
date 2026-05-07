@@ -179,7 +179,8 @@ const PROVIDERS = {
     defaultService: 'mail',
 
     // Outlook Web title: "(3) Mail - user@domain.com - Outlook"
-    unreadTitleRegex: /\((\d+)\)/,
+    // Outlook PWA also uses "[3] Mail - ..." in some builds — match either.
+    unreadTitleRegex: /\((\d+)\)|\[(\d+)\]/,
 
     // DOM-based fallback — handles multiple Outlook Web aria-label formats
     unreadScript: `(function(){
@@ -230,7 +231,14 @@ const PROVIDERS = {
 
     // Outlook Web — profile button img (blob/substrate URL, no Graph API headers needed)
     // then Fluent UI Persona fallbacks. Listed most-specific → least-specific.
+    // Post-2024 Outlook Web uses MeControl* attributes; older builds use the aria-label
+    // selectors. The diagnostic block in viewManager.js (gated on provider.id === 'outlook')
+    // logs which selector is matching the actual DOM — use it to refine this list.
     avatarSelector: [
+      '[data-app-section="MeControlAvatar"] img',
+      'button[data-app-section*="MeControl" i] img',
+      '#owaPersonaButton img',
+      '[data-testid="me-control-avatar"] img',
       'button[aria-label*="your profile" i] img',
       'button[aria-label*="account manager" i] img',
       'button[aria-label*="my account" i] img',
@@ -243,18 +251,6 @@ const PROVIDERS = {
       'img[src*="graph.microsoft.com"]',
       'img[src*="substrate.office.com"]',
     ].join(', '),
-
-    // Injected into the Outlook mail view after load.
-    // Hides the reading pane so the layout is two-column (folders + message list),
-    // matching Gmail / Zoho. Uses stable aria/data attributes rather than hashed class names.
-    mailCSS: `
-      [aria-label="Reading Pane"],
-      [data-testid="ReadingPane"],
-      [data-app-section="ReadingPane"],
-      #ReadingPaneContainerId {
-        display: none !important;
-      }
-    `,
 
     mailtoComposeUrl: (rawUrl) => {
       try {

@@ -2,7 +2,7 @@
 
 > A native, multi-provider desktop email client built with Electron.
 
-Mailwing wraps Gmail, Zoho Mail, and Outlook Web — along with their companion apps — in a single native window. Each account gets a fully isolated browser session, a live unread badge, and desktop notifications that click straight to the right inbox.
+Mailwing wraps Gmail, Outlook Web, Zoho Mail, Fastmail, Yahoo Mail, and ProtonMail — along with their companion apps — in a single native window. Each account gets a fully isolated browser session, a live unread badge, and desktop notifications that click straight to the right inbox.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Electron](https://img.shields.io/badge/Electron-33-47848F?logo=electron&logoColor=white)](https://www.electronjs.org/)
@@ -62,7 +62,7 @@ xattr -rd com.apple.quarantine /Applications/Mailwing.app
 
 | Feature | Details |
 |---|---|
-| **Multi-provider** | Google (Gmail, Calendar, Drive, Docs), Zoho (Mail, Calendar, WorkDrive, Writer), Outlook (Mail, Calendar, OneDrive, People) |
+| **Multi-provider** | Google (Gmail, Calendar, Drive, Docs), Outlook (Mail, Calendar, OneDrive, People), Zoho (Mail, Calendar, WorkDrive, Writer), Fastmail (Mail, Calendar, Contacts), Yahoo (Mail, Calendar), ProtonMail (Mail, Calendar, Drive) |
 | **Multiple accounts** | Add any number of accounts per provider; each gets a fully isolated session (cookies, localStorage, login state) |
 | **Live unread badges** | Inbox counts shown on account buttons, the macOS dock icon, and the system tray |
 | **Desktop notifications** | Native OS notifications when new mail arrives; click to jump to the right inbox |

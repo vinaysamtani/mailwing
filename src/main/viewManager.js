@@ -19,6 +19,13 @@ const unreadCounts = new Map();
 // Currently visible view key
 let activeKey = null;
 
+// Update-banner state — when the renderer is showing the update banner, the
+// BrowserView must shift down to leave the banner visible (BrowserViews are a
+// native overlay drawn ABOVE the host window's HTML, so they would otherwise
+// occlude the banner everywhere except the sidebar strip).
+const UPDATE_BANNER_HEIGHT = 36; // matches #update-banner height in styles.css
+let bannerVisible = false;
+
 // ─── Init ────────────────────────────────────────────────────────────────────
 
 function init({ win, accountsModule }) {
@@ -32,14 +39,25 @@ function setTray(t) {
 
 // ─── Bounds ──────────────────────────────────────────────────────────────────
 
+function getBannerOffset() {
+  return bannerVisible ? UPDATE_BANNER_HEIGHT : 0;
+}
+
 function getViewBounds() {
   const { width, height } = mainWin.getContentBounds();
+  const offset = getBannerOffset();
   return {
     x:      SIDEBAR_WIDTH,
-    y:      0,
+    y:      offset,
     width:  Math.max(1, width  - SIDEBAR_WIDTH),
-    height: Math.max(1, height),
+    height: Math.max(1, height - offset),
   };
+}
+
+/** Toggle whether the update banner is taking up its row at the top of the window. */
+function setBannerVisible(visible) {
+  bannerVisible = !!visible;
+  relayout();
 }
 
 /** Off-screen position with real dimensions so responsive layouts render fully. */
@@ -112,16 +130,56 @@ function createView(accountId, serviceId) {
     }
 
     // Allow in-app with the same isolated session so auth state is shared.
+    // Use the partition string rather than a session instance — Electron's
+    // setWindowOpenHandler propagates `partition` more reliably through
+    // overrideBrowserWindowOptions than a `session` reference, which fixes
+    // calendar-invite RSVP popups re-prompting for login.
     return {
       action: 'allow',
       overrideBrowserWindowOptions: {
         webPreferences: {
-          session:          sess,
+          partition:        'persist:mailwing-' + accountId,
           contextIsolation: true,
           nodeIntegration:  false,
         },
       },
     };
+  });
+
+  // After an auth popup closes (post-login, post-passkey), the parent view is
+  // often still on the signed-out landing page. Reload it so the inbox appears
+  // without requiring an app restart. Gate on safeDomain so unrelated popups
+  // (which shouldn't reach here, but defensive) don't trigger a reload.
+  let reloadingFromPopup = false;
+  view.webContents.on('did-create-window', (childWin, details) => {
+    // Diagnostic — confirm the popup is genuinely sharing the parent's session.
+    // Remove once the calendar-invite re-login bug is verified fixed.
+    try {
+      console.log('[diag-popup]', {
+        accountId,
+        url: details && details.url,
+        sameSession: childWin.webContents.session === sess,
+      });
+    } catch {}
+
+    let lastUrl = (details && details.url) || '';
+    const trackUrl = (_e, url) => { if (url) lastUrl = url; };
+    childWin.webContents.on('did-navigate',            trackUrl);
+    childWin.webContents.on('did-redirect-navigation', trackUrl);
+    childWin.on('closed', () => {
+      if (reloadingFromPopup) return;
+      let host = '';
+      try { host = new URL(lastUrl || childWin.webContents?.getURL?.() || '').hostname; } catch {}
+      if (!host) return;
+      const isAuthHost = provider.safeDomains.some(
+        d => host === d || host.endsWith('.' + d)
+      );
+      if (!isAuthHost) return;
+      if (!view || !view.webContents || view.webContents.isDestroyed()) return;
+      reloadingFromPopup = true;
+      try { view.webContents.reload(); } catch {}
+      setTimeout(() => { reloadingFromPopup = false; }, 5000);
+    });
   });
 
   // Mail views: track unread count, extract avatar, and inject provider CSS overrides
@@ -190,7 +248,7 @@ function attachUnreadPoller(view, accountId, provider) {
   if (!provider.unreadScript) return;
 
   const poll = async () => {
-    if (view.webContents.isDestroyed()) return;
+    if (!view || !view.webContents || view.webContents.isDestroyed()) return;
     try {
       const result = await view.webContents.executeJavaScript(provider.unreadScript);
       if (typeof result === 'number' && result >= 0) {
@@ -213,7 +271,7 @@ function attachUnreadPoller(view, accountId, provider) {
   if (provider.id === 'zoho') {
     let diagnosed = false;
     const runDiag = async () => {
-      if (diagnosed || view.webContents.isDestroyed()) return;
+      if (diagnosed || !view || !view.webContents || view.webContents.isDestroyed()) return;
       // Only run once the title shows the user is logged in (contains '@')
       const title = view.webContents.getTitle();
       if (!title.includes('@')) return;
@@ -254,13 +312,98 @@ function attachUnreadPoller(view, accountId, provider) {
     view.webContents.on('did-navigate-in-page', () => setTimeout(runDiag, 3000));
     view.webContents.on('page-title-updated',   () => setTimeout(runDiag, 5000));
   }
+
+  // ── Diagnostic (Outlook-only): discover folder-tree unread counter selectors and
+  //    profile-button avatar location for the post-2024 Outlook Web layout.
+  //    Remove this block once concrete selectors are encoded in providers.js.
+  if (provider.id === 'outlook') {
+    let diagnosed = false;
+    const runDiag = async () => {
+      if (diagnosed || !view || !view.webContents || view.webContents.isDestroyed()) return;
+      const title = view.webContents.getTitle();
+      // Outlook titles include "@" once the user is signed in
+      if (!title.includes('@')) return;
+      diagnosed = true;
+      try {
+        const info = await view.webContents.executeJavaScript(`(function(){
+          var out = { title: document.title, ariaLabels: [], buttons: [], dataAttrs: [], treeitems: [] };
+          // aria-labels matching inbox/unread/profile/account/me
+          document.querySelectorAll('[aria-label]').forEach(function(el) {
+            var lab = el.getAttribute('aria-label') || '';
+            if (!/inbox|unread|profile|account|\\bme\\b/i.test(lab)) return;
+            var img = el.querySelector ? el.querySelector('img') : null;
+            out.ariaLabels.push({
+              tag: el.tagName,
+              label: lab.substring(0, 80),
+              text: (el.textContent || '').trim().substring(0, 40),
+              imgSrc: img ? (img.getAttribute('src') || '').substring(0, 120) : ''
+            });
+          });
+          // buttons with their aria-label and any nested img.src
+          document.querySelectorAll('button').forEach(function(b) {
+            var lab = b.getAttribute('aria-label') || '';
+            if (!lab) return;
+            var img = b.querySelector('img');
+            out.buttons.push({
+              label: lab.substring(0, 80),
+              imgSrc: img ? (img.getAttribute('src') || '').substring(0, 120) : '',
+              dataApp: b.getAttribute('data-app-section') || '',
+              dataTestId: b.getAttribute('data-testid') || ''
+            });
+          });
+          // data-testid / data-app-section matching profile|persona|me|inbox|folder|count
+          document.querySelectorAll('[data-testid], [data-app-section]').forEach(function(el) {
+            var t = el.getAttribute('data-testid') || '';
+            var a = el.getAttribute('data-app-section') || '';
+            var combined = t + ' ' + a;
+            if (!/profile|persona|me|inbox|folder|count/i.test(combined)) return;
+            out.dataAttrs.push({
+              tag: el.tagName,
+              testId: t,
+              appSection: a,
+              text: (el.textContent || '').trim().substring(0, 30)
+            });
+          });
+          // treeitems (folder tree nodes)
+          document.querySelectorAll('[role="treeitem"], li[role="treeitem"]').forEach(function(el) {
+            var lab = el.getAttribute('aria-label') || '';
+            if (!/inbox/i.test(lab) && !/inbox/i.test(el.textContent || '')) return;
+            var spans = [];
+            el.querySelectorAll('span').forEach(function(s) {
+              var st = (s.textContent || '').trim();
+              if (st && st.length < 20) spans.push(st);
+            });
+            out.treeitems.push({
+              label: lab.substring(0, 80),
+              text: (el.textContent || '').trim().substring(0, 80),
+              spans: spans.slice(0, 8)
+            });
+          });
+          return out;
+        })()`);
+        console.log('[Mailwing diag-outlook]');
+        console.log('  title:', info.title);
+        console.log('  aria-labels (top 20):', JSON.stringify(info.ariaLabels.slice(0, 20), null, 2));
+        console.log('  buttons (top 20):',     JSON.stringify(info.buttons.slice(0, 20), null, 2));
+        console.log('  data-attrs (top 20):',  JSON.stringify(info.dataAttrs.slice(0, 20), null, 2));
+        console.log('  treeitems (inbox):',    JSON.stringify(info.treeitems.slice(0, 10), null, 2));
+      } catch (e) {
+        console.log('[Mailwing diag-outlook] error:', e.message);
+      }
+    };
+    view.webContents.on('did-finish-load',      () => setTimeout(runDiag, 15000));
+    view.webContents.on('did-navigate-in-page', () => setTimeout(runDiag, 3000));
+    view.webContents.on('page-title-updated',   () => setTimeout(runDiag, 5000));
+  }
 }
 
 function attachAvatarExtractor(view, accountId, provider, sess) {
   let extracted = false;
 
   const tryExtract = async () => {
-    if (extracted || view.webContents.isDestroyed()) return;
+    // The view may be destroyed (account removed, render crash, app quitting)
+    // before this timer fires — webContents becomes undefined in that case.
+    if (extracted || !view || !view.webContents || view.webContents.isDestroyed()) return;
 
     try {
       // Try canvas-based extraction first — works for blob URLs (Outlook MSAL) and
@@ -339,7 +482,8 @@ function attachAvatarExtractor(view, accountId, provider, sess) {
   // only appears in the DOM at ~15–30 s (SPA renders asynchronously).
   // Also retry 3 s after each in-page navigation (Zoho fires these as it routes).
   view.webContents.on('did-finish-load', () => {
-    [8000, 15000, 25000, 45000].forEach(d => setTimeout(tryExtract, d));
+    // Outlook's MeControl avatar can render as late as ~60 s on slow networks; extra retry at 75 s
+    [8000, 15000, 25000, 45000, 75000].forEach(d => setTimeout(tryExtract, d));
   });
   view.webContents.on('did-navigate-in-page', () => setTimeout(tryExtract, 3000));
 }
@@ -496,4 +640,5 @@ module.exports = {
   warmUpMailViews,
   hideActiveView,
   revealActiveView,
+  setBannerVisible,
 };

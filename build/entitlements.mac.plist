@@ -7,13 +7,20 @@
   <true/>
   <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
   <true/>
+
   <!-- Required so macOS allows the Electron Framework (signed by GitHub) to load
        alongside app code signed by the developer certificate. Without this the
        hardened runtime rejects the bundled dylibs and the app crashes on launch. -->
   <key>com.apple.security.cs.disable-library-validation</key>
   <true/>
-  <!-- Required for Touch ID / platform passkeys on notarised builds -->
-  <key>com.apple.developer.public-key-credential</key>
+
+  <!-- Bluetooth access — required for caBLE / cross-device passkey ceremonies
+       (Chromium FIDO uses BLE to connect to a phone authenticator). The matching
+       NSBluetoothAlwaysUsageDescription / NSBluetoothPeripheralUsageDescription
+       Info.plist keys are injected by Electron's framework defaults. Has no effect
+       on unsigned builds — entitlements only take effect once the binary is signed
+       with a Developer ID Application certificate. See docs/GOTCHAS.md. -->
+  <key>com.apple.security.device.bluetooth</key>
   <true/>
 </dict>
 </plist>

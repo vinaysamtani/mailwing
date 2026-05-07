@@ -98,6 +98,14 @@ function attachAdBlocker(sess, providerConfig) {
  */
 function attachNotificationPermission(sess) {
   sess.setPermissionRequestHandler((_webContents, permission, callback) => {
+    // Explicit allow for WebAuthn / passkey ceremonies — documents intent and
+    // survives any future change to the default. Note that on unsigned macOS
+    // builds the ceremony will still fail at the OS level (see docs/GOTCHAS.md).
+    if (permission === 'publickey-credentials-get' ||
+        permission === 'publickey-credentials-create') {
+      callback(true);
+      return;
+    }
     callback(permission !== 'notifications');
   });
 

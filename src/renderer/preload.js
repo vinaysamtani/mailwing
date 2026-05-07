@@ -33,6 +33,20 @@ contextBridge.exposeInMainWorld('mailwing', {
   openExternal:  (url)   => ipcRenderer.send('open-external', { url }),
   overlayMode:   (open)  => ipcRenderer.send('overlay-mode',  { open }),
 
+  // ── Notes / Todo ──────────────────────────────────────────────────────────
+  getNotes:        ()             => ipcRenderer.invoke('get-notes'),
+  addNote:         (text)         => ipcRenderer.invoke('add-note',    { text }),
+  toggleNote:      (id)           => ipcRenderer.invoke('toggle-note', { id }),
+  removeNote:      (id)           => ipcRenderer.invoke('remove-note', { id }),
+  updateNote:      (id, patch)    => ipcRenderer.invoke('update-note', { id, patch }),
+  onNotesUpdated:  (cb)           => ipcRenderer.on('notes-updated', (_e, d) => cb(d)),
+
+  // ── Update notifications ──────────────────────────────────────────────────
+  onUpdateAvailable: (cb)         => ipcRenderer.on('update-available', (_e, d) => cb(d)),
+  dismissUpdate:     (version)    => ipcRenderer.send('dismiss-update',    { version }),
+  openReleasePage:   (url)        => ipcRenderer.send('open-release-page', { url }),
+  setBannerVisible:  (open)       => ipcRenderer.send('banner-visible',    { open }),
+
   // ── Static info ───────────────────────────────────────────────────────────
   platform: process.platform,
 });

@@ -28,6 +28,7 @@ const AVATAR_COLORS = [
 let cachedAccounts  = [];
 let cachedProviders = [];
 let cachedUnread    = {};
+let cachedNotes     = [];
 let activeAccountId = null;
 let activeServiceId = 'mail';
 let draggedAccountId = null; // drag-to-reorder state
@@ -73,6 +74,17 @@ async function init() {
 
   window.mailwing.onDarkModeChanged(applyTheme);
   window.mailwing.onShowBugReport(() => openBugReport());
+
+  // Notes list stays in sync with the store; main process broadcasts after every CRUD.
+  window.mailwing.onNotesUpdated((notes) => {
+    cachedNotes = notes;
+    if (!document.getElementById('notes-modal').classList.contains('hidden')) {
+      renderNotesList();
+    }
+  });
+
+  // Update banner: main fires this when GitHub has a newer release than us.
+  window.mailwing.onUpdateAvailable((info) => showUpdateBanner(info));
 }
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
@@ -422,19 +434,123 @@ function submitBugReport() {
   closeBugReport();
 }
 
+// ─── Update banner ───────────────────────────────────────────────────────────
+let pendingUpdate = null; // { version, url, name, body }
+
+function showUpdateBanner(info) {
+  if (!info || !info.version) return;
+  pendingUpdate = info;
+
+  const banner = document.getElementById('update-banner');
+  const text   = banner.querySelector('.update-banner-text');
+  // textContent — release names come from GitHub and shouldn't be HTML-rendered.
+  text.textContent = `Mailwing ${info.version} is available.`;
+  banner.classList.remove('hidden');
+  // Tell main to shift the BrowserView down so the banner isn't occluded.
+  window.mailwing.setBannerVisible(true);
+}
+
+function hideUpdateBanner() {
+  document.getElementById('update-banner').classList.add('hidden');
+  window.mailwing.setBannerVisible(false);
+}
+
+// ─── Notes / Todo modal ──────────────────────────────────────────────────────
+async function openNotes() {
+  // Mutual exclusion: only one full-window modal at a time.
+  if (!document.getElementById('bug-report-modal').classList.contains('hidden')) {
+    closeBugReport();
+  }
+
+  window.mailwing.overlayMode(true);
+  document.getElementById('notes-modal').classList.remove('hidden');
+
+  cachedNotes = await window.mailwing.getNotes();
+  renderNotesList();
+
+  document.getElementById('notes-input').focus();
+}
+
+function closeNotes() {
+  document.getElementById('notes-modal').classList.add('hidden');
+  document.getElementById('notes-input').value = '';
+  window.mailwing.overlayMode(false);
+}
+
+function renderNotesList() {
+  const list  = document.getElementById('notes-list');
+  const empty = document.getElementById('notes-empty');
+  list.innerHTML = '';
+
+  if (!cachedNotes.length) {
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  // Newest-first
+  const sorted = [...cachedNotes].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+  sorted.forEach(note => {
+    const li = document.createElement('li');
+    li.className = 'note-item' + (note.done ? ' done' : '');
+
+    const tick = document.createElement('button');
+    tick.className   = 'note-tick';
+    tick.title       = note.done ? 'Mark as not done' : 'Mark as done';
+    tick.setAttribute('aria-label', tick.title);
+    tick.textContent = '✓';
+    tick.addEventListener('click', () => window.mailwing.toggleNote(note.id));
+
+    const text = document.createElement('div');
+    text.className   = 'note-text';
+    // textContent (NOT innerHTML) — note bodies are user-supplied free text.
+    text.textContent = note.text;
+
+    const del = document.createElement('button');
+    del.className   = 'note-delete';
+    del.title       = 'Delete';
+    del.setAttribute('aria-label', 'Delete');
+    del.textContent = '×';
+    del.addEventListener('click', () => window.mailwing.removeNote(note.id));
+
+    li.appendChild(tick);
+    li.appendChild(text);
+    li.appendChild(del);
+    list.appendChild(li);
+  });
+}
+
+async function submitNote() {
+  const input = document.getElementById('notes-input');
+  const text  = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  await window.mailwing.addNote(text);
+  // onNotesUpdated will re-render with the new item already in cachedNotes.
+}
+
 // ─── Keyboard shortcuts ───────────────────────────────────────────────────────
 function handleKeydown(e) {
   // Close modal on Escape
   if (e.key === 'Escape') {
-    const modal = document.getElementById('bug-report-modal');
-    if (!modal.classList.contains('hidden')) {
-      closeBugReport();
-      return;
-    }
+    const notesModal = document.getElementById('notes-modal');
+    if (!notesModal.classList.contains('hidden')) { closeNotes(); return; }
+    const bugModal = document.getElementById('bug-report-modal');
+    if (!bugModal.classList.contains('hidden'))   { closeBugReport(); return; }
   }
 
   const mod = e.metaKey || e.ctrlKey;
   if (!mod) return;
+
+  // Cmd/Ctrl+Shift+N → open notes
+  if (e.shiftKey && (e.key === 'n' || e.key === 'N')) {
+    e.preventDefault();
+    openNotes();
+    return;
+  }
+
+  if (e.shiftKey) return; // other Cmd+Shift+X combos are not ours
 
   if (e.key >= '1' && e.key <= '9') {
     const idx = parseInt(e.key, 10) - 1;
@@ -479,6 +595,43 @@ document.getElementById('bug-view-issues')
 document.getElementById('bug-report-modal')
   .addEventListener('click', (e) => {
     if (e.target === e.currentTarget) closeBugReport();
+  });
+
+// ── Notes modal wiring ─────────────────────────────────────────────────────
+document.getElementById('notes-btn')
+  .addEventListener('click', () => openNotes());
+
+document.getElementById('notes-close')
+  .addEventListener('click', () => closeNotes());
+
+document.getElementById('notes-modal')
+  .addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeNotes();
+  });
+
+// Enter (without Shift) submits; Shift+Enter inserts a newline.
+document.getElementById('notes-input')
+  .addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      submitNote();
+    }
+  });
+
+// ── Update banner wiring ──────────────────────────────────────────────────
+document.getElementById('update-download-btn')
+  .addEventListener('click', () => {
+    if (pendingUpdate && pendingUpdate.url) {
+      window.mailwing.openReleasePage(pendingUpdate.url);
+    }
+  });
+
+document.getElementById('update-dismiss-btn')
+  .addEventListener('click', () => {
+    if (pendingUpdate && pendingUpdate.version) {
+      window.mailwing.dismissUpdate(pendingUpdate.version);
+    }
+    hideUpdateBanner();
   });
 
 document.addEventListener('keydown', handleKeydown);

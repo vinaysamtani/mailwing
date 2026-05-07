@@ -11,6 +11,7 @@ const notifications   = require('./notifications');
 const tray            = require('./tray');
 const darkMode        = require('./darkMode');
 const ipcHandlers     = require('./ipcHandlers');
+const updateChecker   = require('./updateChecker');
 
 // ─── Performance flags ───────────────────────────────────────────────────────
 // Must be set before app is ready.
@@ -139,8 +140,12 @@ function createWindow() {
   tray.init({ win: mainWin, accounts, viewManager });
   viewManager.setTray(tray); // wire up so broadcastUnread updates dock + menu bar
   darkMode.init(mainWin);
-  ipcHandlers.register({ win: mainWin, viewManager, accounts, tray });
+  ipcHandlers.register({ win: mainWin, viewManager, accounts, tray, updateChecker });
   setAppMenu(mainWin);
+
+  // Background poll: nudges the renderer to show an update banner when a newer
+  // GitHub release is published. First check fires 10 s after launch.
+  updateChecker.start({ win: mainWin });
 
   // ── Window state persistence ────────────────────────────────────────────
   let resizeTimer;
