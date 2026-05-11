@@ -1,0 +1,57 @@
+---
+import { SITE } from '@/lib/site';
+const year = new Date().getFullYear();
+---
+<footer class="site-footer">
+  <div class="container site-footer__inner">
+    <div class="site-footer__brand">
+      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="opacity:0.5">
+        <path d="M21 3 3 10.5l7.5 2L13 21l8-18Z" fill="currentColor" />
+      </svg>
+      <span>{SITE.name} · MIT licensed · No telemetry</span>
+    </div>
+    <nav class="site-footer__links" aria-label="Footer">
+      <a href={SITE.repo} target="_blank" rel="noopener">GitHub</a>
+      <a href={SITE.releases} target="_blank" rel="noopener">Releases</a>
+      <a href={SITE.issues} target="_blank" rel="noopener">Issues</a>
+      <a href={SITE.license} target="_blank" rel="noopener">License</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/changelog">Changelog</a>
+    </nav>
+    <small class="site-footer__year">© {year}</small>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    border-top: 1px solid var(--border);
+    padding: var(--space-12) 0;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+  .site-footer__inner {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-6);
+    align-items: center;
+    justify-content: space-between;
+  }
+  .site-footer__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--accent-warm);
+  }
+  .site-footer__brand span { color: var(--text-muted); }
+  .site-footer__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-6);
+  }
+  .site-footer__links a {
+    color: var(--text-muted);
+    text-decoration: none;
+  }
+  .site-footer__links a:hover { color: var(--text); }
+  .site-footer__year { color: var(--text-soft); }
+</style>

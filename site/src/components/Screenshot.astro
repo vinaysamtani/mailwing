@@ -1,0 +1,41 @@
+---
+import { Image } from 'astro:assets';
+import screenshot from '../../../docs/screenshot.png';
+
+interface Props {
+  alt?: string;
+  eager?: boolean;
+}
+const { alt = 'Mailwing showing six email accounts in one native window', eager = false } = Astro.props;
+---
+<figure class="screenshot lift">
+  <Image
+    src={screenshot}
+    alt={alt}
+    widths={[800, 1200, 1600]}
+    sizes="(min-width: 960px) 600px, 100vw"
+    format="webp"
+    quality={88}
+    loading={eager ? 'eager' : 'lazy'}
+  />
+</figure>
+
+<style>
+  .screenshot {
+    margin: 0;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border);
+    transform: rotate(-1.2deg);
+    background: var(--bg-elevated);
+  }
+  .screenshot:hover {
+    transform: rotate(0) translateY(-4px);
+  }
+  .screenshot :global(img) {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+</style>

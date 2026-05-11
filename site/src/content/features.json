@@ -1,0 +1,38 @@
+[
+  {
+    "id": "six-providers",
+    "title": "Six providers, one window",
+    "body": "Gmail, Outlook, Zoho, Fastmail, Yahoo and ProtonMail — each in its real native interface, side by side in a single app.",
+    "icon": "stack"
+  },
+  {
+    "id": "isolated-sessions",
+    "title": "Isolated sessions per account",
+    "body": "Cookies, login state, and local storage never cross between accounts. Sign in to two Gmail accounts without the usual chaos.",
+    "icon": "split"
+  },
+  {
+    "id": "unread-badges",
+    "title": "Live unread counts, everywhere",
+    "body": "Sidebar, dock, system tray and notifications stay in sync with each inbox — no need to click around to check what's new.",
+    "icon": "badge"
+  },
+  {
+    "id": "ad-blocking",
+    "title": "Built-in ad & tracker blocking",
+    "body": "Network-level filtering quietly strips promo banners and tracking pixels. Provider domains are deliberately left untouched.",
+    "icon": "shield"
+  },
+  {
+    "id": "dark-mode",
+    "title": "Dark mode follows your OS",
+    "body": "Light by day, dark by night — Mailwing follows your system preference so you never have to flip a switch.",
+    "icon": "moon"
+  },
+  {
+    "id": "notes",
+    "title": "Notes & to-dos, right there",
+    "body": "A quick scratch panel next to your inbox. Cmd/Ctrl + Shift + N opens it. Persists across launches, never leaves your device.",
+    "icon": "note"
+  }
+]

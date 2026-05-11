@@ -1,0 +1,94 @@
+---
+import { SITE } from '@/lib/site';
+---
+<header class="site-header">
+  <div class="container site-header__inner">
+    <a class="site-header__brand" href="/" aria-label={`${SITE.name} home`}>
+      <svg class="site-header__plane" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+        <path
+          d="M21 3 3 10.5l7.5 2L13 21l8-18Z"
+          fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"
+        />
+        <path d="m10.5 12.5 4-4" fill="none" stroke="rgba(0,0,0,0.18)" stroke-width="1" stroke-linecap="round" />
+      </svg>
+      <span class="site-header__wordmark">{SITE.name}</span>
+    </a>
+    <nav class="site-header__nav" aria-label="Primary">
+      <a href="/#features">Features</a>
+      <a href="/#install">Install</a>
+      <a href="/changelog">Changelog</a>
+      <a href="/privacy">Privacy</a>
+      <a class="site-header__github" href={SITE.repo} target="_blank" rel="noopener">
+        GitHub <span aria-hidden="true">↗</span>
+      </a>
+    </nav>
+  </div>
+</header>
+
+<style>
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: saturate(150%) blur(10px);
+    -webkit-backdrop-filter: saturate(150%) blur(10px);
+    background: color-mix(in srgb, var(--bg) 80%, transparent);
+    border-bottom: 1px solid transparent;
+    transition: border-color 200ms ease;
+  }
+  .site-header[data-scrolled] {
+    border-bottom-color: var(--border);
+  }
+  .site-header__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+  }
+  .site-header__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .site-header__plane { color: var(--accent-warm); }
+  .site-header__wordmark {
+    font-family: var(--font-serif);
+    font-size: 1.25rem;
+    letter-spacing: -0.01em;
+    font-variation-settings: "opsz" 48, "SOFT" 60;
+  }
+  .site-header__nav {
+    display: flex;
+    align-items: center;
+    gap: var(--space-6);
+  }
+  .site-header__nav a {
+    color: var(--text-muted);
+    font-size: 15px;
+    text-decoration: none;
+    transition: color 120ms ease;
+  }
+  .site-header__nav a:hover { color: var(--text); }
+  .site-header__github {
+    color: var(--text) !important;
+    font-weight: 500;
+  }
+  @media (max-width: 720px) {
+    .site-header__nav a:not(.site-header__github) { display: none; }
+  }
+</style>
+
+<script>
+  const header = document.querySelector('.site-header');
+  if (header) {
+    const onScroll = () => {
+      if (window.scrollY > 4) header.setAttribute('data-scrolled', '');
+      else header.removeAttribute('data-scrolled');
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+  }
+</script>

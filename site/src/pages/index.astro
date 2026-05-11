@@ -1,0 +1,42 @@
+---
+import PageLayout from '@/layouts/PageLayout.astro';
+import Hero from '@/components/Hero.astro';
+import FeaturesGrid from '@/components/FeaturesGrid.astro';
+import InstallTabs from '@/components/InstallTabs.astro';
+import FAQ from '@/components/FAQ.astro';
+import CtaBanner from '@/components/CtaBanner.astro';
+import { getLatestRelease } from '@/lib/releases';
+import { SITE } from '@/lib/site';
+
+const release = await getLatestRelease();
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: SITE.name,
+  description: SITE.description,
+  applicationCategory: 'CommunicationApplication',
+  operatingSystem: 'macOS, Windows, Linux',
+  softwareVersion: release.version,
+  license: SITE.license,
+  url: SITE.url,
+  downloadUrl: SITE.releases,
+  image: new URL('/img/social-preview.png', SITE.url).toString(),
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  author: { '@type': 'Person', name: 'Vinay Samtani', url: 'https://github.com/vinaysamtani' },
+};
+---
+<PageLayout
+  title={`${SITE.name} — ${SITE.tagline}`}
+  description={SITE.description}
+>
+  <Fragment slot="head">
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+  </Fragment>
+
+  <Hero release={release} />
+  <FeaturesGrid />
+  <InstallTabs release={release} />
+  <FAQ />
+  <CtaBanner release={release} />
+</PageLayout>

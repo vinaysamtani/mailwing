@@ -1,0 +1,118 @@
+---
+import PageLayout from '@/layouts/PageLayout.astro';
+import { SITE } from '@/lib/site';
+---
+<PageLayout
+  title={`${SITE.name} Privacy — No telemetry, no analytics, ever.`}
+  description={`${SITE.name} has no telemetry, no analytics, and no cloud sync. Here's exactly what stays on your device and the two outbound calls the app does make.`}
+>
+  <article class="privacy">
+    <div class="container container--narrow">
+      <header class="privacy__header">
+        <p class="privacy__eyebrow">Privacy</p>
+        <h1>No telemetry. No analytics. Ever.</h1>
+        <p class="privacy__lede">
+          You don't have to take our word for it — every byte of {SITE.name} is
+          <a href={SITE.repo} target="_blank" rel="noopener">open source</a>.
+          This page describes what the app actually does, in plain English.
+        </p>
+      </header>
+
+      <div class="prose">
+        <h2>TL;DR</h2>
+        <ul>
+          <li>No telemetry. No analytics. No crash reporting.</li>
+          <li>Mailwing never sees your email — it connects you directly to your providers.</li>
+          <li>Open source, MIT licensed. Read every line on <a href={SITE.repo} target="_blank" rel="noopener">GitHub</a>.</li>
+          <li>This website has zero analytics, zero tracking pixels, zero cookies.</li>
+        </ul>
+
+        <h2>What stays on your device</h2>
+        <p>Mailwing keeps everything local. Specifically:</p>
+        <ul>
+          <li><strong>Account list and preferences</strong> — stored as JSON via <code>electron-store</code> in your OS user-data directory.</li>
+          <li><strong>Per-provider sessions</strong> — cookies and localStorage live in isolated <code>persist:mailwing-{`{accountId}`}</code> partitions, managed by Electron. They never cross between accounts.</li>
+          <li><strong>Notes and todos</strong> — <code>notes.json</code> in the same user-data directory.</li>
+        </ul>
+        <p>The user-data directory paths:</p>
+        <ul>
+          <li>macOS: <code>~/Library/Application Support/mailwing</code></li>
+          <li>Windows: <code>%APPDATA%\mailwing</code></li>
+          <li>Linux: <code>~/.config/mailwing</code></li>
+        </ul>
+
+        <h2>What we don't do</h2>
+        <ul>
+          <li>No first-party telemetry or "usage statistics".</li>
+          <li>No analytics SDK (no Mixpanel, no Amplitude, no Google Analytics, no PostHog).</li>
+          <li>No crash-reporting service (no Sentry, no Bugsnag).</li>
+          <li>No third-party trackers — the app actively <em>blocks</em> them at the network layer for the provider pages.</li>
+          <li>No cloud sync. Your accounts only exist on the machine where you added them.</li>
+        </ul>
+
+        <h2>The two outbound calls Mailwing does make</h2>
+        <p>To be precise — these are the only network requests Mailwing's own code initiates:</p>
+        <ol>
+          <li>
+            <strong>Update check.</strong> Once on launch and every six hours, Mailwing requests
+            <code>api.github.com/repos/vinaysamtani/mailwing/releases/latest</code> to know whether a newer
+            version is available. The only header sent is a standard <code>User-Agent</code> — no
+            identifying tokens, no fingerprint. The response stays in memory just long enough to show
+            the in-app banner. (If you'd rather not even check, block <code>api.github.com</code> at your
+            firewall — the feature degrades silently.)
+          </li>
+          <li>
+            <strong>Your providers' own traffic.</strong> Once you're signed in, Gmail talks to Google,
+            Outlook talks to Microsoft, and so on. That traffic obviously phones home — it's how those
+            products work — but it's between you and them. Mailwing does not proxy, mirror, or
+            intermediate any of it.
+          </li>
+        </ol>
+
+        <h2>Ad &amp; tracker blocking</h2>
+        <p>
+          Mailwing ships with a built-in block list (see <a href={`${SITE.repo}/blob/main/src/main/adBlockList.js`} target="_blank" rel="noopener"><code>src/main/adBlockList.js</code></a>) that intercepts:
+        </p>
+        <ul>
+          <li>Analytics and product-telemetry domains</li>
+          <li>Common ad networks</li>
+          <li>Cross-site fingerprinters and pixel trackers</li>
+        </ul>
+        <p>
+          Provider domains (Google, Microsoft, Zoho, Fastmail, Yahoo, Proton) are deliberately
+          left untouched — blocking them would break the products you're trying to use.
+        </p>
+
+        <h2>This website</h2>
+        <p>
+          <a href={SITE.url}>{SITE.url}</a> is a static site hosted on Cloudflare Pages.
+          We have zero analytics on it — no Google Analytics, no Cloudflare Web Analytics, no
+          third-party scripts of any kind. The only cookies you might see are Cloudflare's own
+          infrastructure cookies (no user-identifying ones). Cloudflare itself, as our host, will
+          have standard request logs for IPs and timestamps; we do not access or analyse those.
+        </p>
+
+        <h2>Reporting a privacy issue</h2>
+        <p>
+          Spot something off, or have a question about an outbound request you're seeing in Little
+          Snitch / Wireshark / netstat? Please <a href={SITE.issues} target="_blank" rel="noopener">open an issue</a> or read
+          <a href={`${SITE.repo}/blob/main/SECURITY.md`} target="_blank" rel="noopener">SECURITY.md</a> for responsible-disclosure contact details.
+        </p>
+      </div>
+    </div>
+  </article>
+</PageLayout>
+
+<style>
+  .privacy { padding: var(--space-12) 0 var(--space-16); }
+  .privacy__header { margin-bottom: var(--space-12); }
+  .privacy__eyebrow {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: var(--space-4);
+  }
+  .privacy__lede { color: var(--text-muted); margin-top: var(--space-4); font-size: 18px; }
+</style>

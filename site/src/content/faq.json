@@ -1,0 +1,26 @@
+[
+  {
+    "q": "Is Mailwing actually free?",
+    "a": "Yes. Free to download, MIT-licensed, source on GitHub. No paid tier, no \"team\" plan, no upsell."
+  },
+  {
+    "q": "Does Mailwing read my email?",
+    "a": "No. Mailwing wraps your provider's own web interface in an isolated session per account — Gmail talks to Google, Outlook talks to Microsoft, and so on. Mailwing itself never sees your messages and routes nothing through any intermediary."
+  },
+  {
+    "q": "Why is the app unsigned?",
+    "a": "Code signing certificates cost hundreds of dollars a year per platform. Mailwing is a one-person open-source project — until that changes, you'll see a first-launch trust step on macOS and Windows. The trade-off is full source transparency on GitHub."
+  },
+  {
+    "q": "Can I add a provider that isn't on the list?",
+    "a": "Most webmail providers work if you can pin them — open an issue on GitHub with the provider URL and we'll look at adding it to the registry."
+  },
+  {
+    "q": "Is there a mobile app?",
+    "a": "No, and there are no plans. Mailwing is intentionally a desktop app for people who do email at a keyboard. Use your provider's own mobile app for phone access."
+  },
+  {
+    "q": "Does Mailwing sync between my computers?",
+    "a": "No. Accounts and notes live only on the machine where you added them. If you want them on another computer, sign in there too."
+  }
+]

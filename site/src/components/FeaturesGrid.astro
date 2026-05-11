@@ -1,0 +1,46 @@
+---
+import FeatureCard from './FeatureCard.astro';
+import features from '@/content/features.json';
+---
+<section id="features" class="features">
+  <div class="container">
+    <header class="features__header">
+      <h2 class="features__heading">
+        Native is the point.
+      </h2>
+      <p class="features__lede">
+        Mailwing isn't another browser pretending to be an app. Six providers,
+        each in their real interface, sharing one window — with a few quiet
+        upgrades a browser tab can't give you.
+      </p>
+    </header>
+    <div class="features__grid">
+      {features.map((f) => (
+        <FeatureCard title={f.title} body={f.body} icon={f.icon} />
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .features__header {
+    max-width: 640px;
+    margin-bottom: var(--space-12);
+  }
+  .features__lede {
+    color: var(--text-muted);
+    font-size: 17px;
+    margin: var(--space-4) 0 0;
+  }
+  .features__grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+  @media (min-width: 640px) {
+    .features__grid { grid-template-columns: 1fr 1fr; gap: var(--space-6); }
+  }
+  @media (min-width: 960px) {
+    .features__grid { grid-template-columns: 1fr 1fr 1fr; }
+  }
+</style>

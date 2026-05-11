@@ -1,0 +1,56 @@
+---
+import faq from '@/content/faq.json';
+---
+<section id="faq" class="faq">
+  <div class="container container--narrow">
+    <h2 class="faq__title">Common questions.</h2>
+    <div class="faq__list">
+      {faq.map((item, i) => (
+        <details class="faq__item" open={i === 0}>
+          <summary>
+            <span>{item.q}</span>
+            <svg class="faq__chev" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </summary>
+          <div class="faq__body">{item.a}</div>
+        </details>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .faq__title { margin-bottom: var(--space-8); }
+  .faq__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .faq__item {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--card);
+    overflow: hidden;
+  }
+  .faq__item summary {
+    cursor: pointer;
+    list-style: none;
+    padding: var(--space-4) var(--space-6);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    color: var(--text);
+    font-weight: 500;
+  }
+  .faq__item summary::-webkit-details-marker { display: none; }
+  .faq__item summary:hover { background: color-mix(in srgb, var(--text) 3%, transparent); }
+  .faq__chev { color: var(--text-muted); transition: transform 150ms ease; flex-shrink: 0; }
+  .faq__item[open] .faq__chev { transform: rotate(180deg); }
+  .faq__body {
+    padding: 0 var(--space-6) var(--space-6);
+    color: var(--text-muted);
+    line-height: 1.65;
+  }
+</style>

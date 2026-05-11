@@ -1,0 +1,122 @@
+---
+import type { LatestRelease } from '@/lib/releases.types';
+import PaperPlane from './PaperPlane.astro';
+import ProviderDots from './ProviderDots.astro';
+import DownloadButton from './DownloadButton.astro';
+import Screenshot from './Screenshot.astro';
+import VersionBadge from './VersionBadge.astro';
+import { SITE } from '@/lib/site';
+
+interface Props {
+  release: LatestRelease;
+}
+const { release } = Astro.props;
+---
+<section class="hero">
+  <div class="hero__bg" aria-hidden="true">
+    <PaperPlane animate />
+  </div>
+  <div class="container hero__inner">
+    <div class="hero__copy">
+      <VersionBadge version={release.version} publishedAt={release.publishedAt} href={release.htmlUrl} />
+      <h1 class="hero__title">
+        Your inbox,
+        <span class="hero__title-accent">on the wing.</span>
+      </h1>
+      <p class="hero__sub">
+        Six email providers. One native desktop app. Zero browser tabs.
+      </p>
+      <div class="hero__dots">
+        <ProviderDots size="md" animate />
+      </div>
+      <div class="hero__cta">
+        <DownloadButton release={release} />
+        <a class="btn btn--secondary" href={SITE.repo} target="_blank" rel="noopener">
+          View on GitHub
+          <span aria-hidden="true">↗</span>
+        </a>
+      </div>
+      <p class="hero__meta">Free · Open source · MIT licensed · macOS · Windows · Linux</p>
+    </div>
+    <div class="hero__shot">
+      <Screenshot eager />
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    padding: var(--space-16) 0 var(--space-12);
+    overflow: hidden;
+    isolation: isolate;
+  }
+  @media (min-width: 960px) {
+    .hero { padding: var(--space-24) 0 var(--space-16); }
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: -20% -10% 30% -10%;
+    background:
+      radial-gradient(closest-side at 20% 30%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 65%),
+      radial-gradient(closest-side at 80% 20%, color-mix(in srgb, var(--accent-warm) 12%, transparent), transparent 60%);
+    z-index: -1;
+    pointer-events: none;
+  }
+  .hero__bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    --plane-path: path('M -40 280 C 220 80, 600 380, 1280 60');
+  }
+  .hero__inner {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-12);
+    align-items: center;
+  }
+  @media (min-width: 960px) {
+    .hero__inner { grid-template-columns: 1.1fr 1fr; gap: var(--space-16); }
+  }
+  .hero__title {
+    margin-top: var(--space-6);
+    margin-bottom: var(--space-4);
+    font-variation-settings: "opsz" 144, "wght" 600, "SOFT" 50;
+  }
+  .hero__title-accent {
+    font-style: italic;
+    color: var(--accent-warm);
+    font-variation-settings: "opsz" 144, "wght" 500, "SOFT" 80;
+    display: inline-block;
+  }
+  .hero__sub {
+    font-size: clamp(1.05rem, 1vw + 0.85rem, 1.25rem);
+    color: var(--text-muted);
+    max-width: 32ch;
+    margin-bottom: var(--space-6);
+  }
+  .hero__dots { margin-bottom: var(--space-8); }
+  .hero__cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    align-items: center;
+  }
+  .hero__meta {
+    margin-top: var(--space-6);
+    margin-bottom: 0;
+    font-size: 13px;
+    color: var(--text-soft);
+  }
+  .hero__shot {
+    position: relative;
+    z-index: 1;
+  }
+  @media (max-width: 959px) {
+    .hero__shot { margin-top: var(--space-8); }
+  }
+</style>

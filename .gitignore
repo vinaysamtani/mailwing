@@ -2,6 +2,8 @@ node_modules/
 dist/
 build/
 !build/entitlements.mac.plist
+!build/icon.png
+!build/social-preview.png
 *.log
 .DS_Store
 Thumbs.db

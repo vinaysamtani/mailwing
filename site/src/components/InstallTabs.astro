@@ -1,0 +1,140 @@
+---
+import CodeBlock from './CodeBlock.astro';
+import DownloadButton from './DownloadButton.astro';
+import type { LatestRelease } from '@/lib/releases.types';
+import { SITE } from '@/lib/site';
+
+interface Props {
+  release: LatestRelease;
+}
+const { release } = Astro.props;
+
+const brew  = `brew install --cask ${SITE.brewTap}`;
+const wing  = `winget install --id ${SITE.wingetId}`;
+const linux = release.assets.linux
+  ? `chmod +x ${release.assets.linux.name}\n./${release.assets.linux.name}`
+  : `chmod +x Mailwing-${release.version}.AppImage\n./Mailwing-${release.version}.AppImage`;
+---
+<section id="install" class="install">
+  <div class="container">
+    <header class="install__header">
+      <h2>Install in one line.</h2>
+      <p class="install__lede">Pick the channel that matches your OS. Mailwing is unsigned — first launch needs a single trust step per platform.</p>
+    </header>
+
+    <div class="install-tabs">
+      <input type="radio" name="install-tab" id="tab-mac"   class="install-tabs__radio" checked />
+      <input type="radio" name="install-tab" id="tab-win"   class="install-tabs__radio" />
+      <input type="radio" name="install-tab" id="tab-linux" class="install-tabs__radio" />
+
+      <div class="install-tabs__labels" role="tablist">
+        <label for="tab-mac"   role="tab">macOS</label>
+        <label for="tab-win"   role="tab">Windows</label>
+        <label for="tab-linux" role="tab">Linux</label>
+      </div>
+
+      <div class="install-tabs__panel install-tabs__panel--mac" role="tabpanel">
+        <div class="install-tabs__row">
+          <DownloadButton release={release} fixedOs="mac" />
+          <a class="install-tabs__more" href="/download/mac">macOS install guide →</a>
+        </div>
+        <p class="install-tabs__or">Or via Homebrew:</p>
+        <CodeBlock code={brew} label="terminal" />
+        <p class="install-tabs__note">
+          First launch: right-click Mailwing in <code>/Applications</code> → <strong>Open</strong>.
+          <a href="/download/mac#gatekeeper">Why?</a>
+        </p>
+      </div>
+
+      <div class="install-tabs__panel install-tabs__panel--win" role="tabpanel">
+        <div class="install-tabs__row">
+          <DownloadButton release={release} fixedOs="win" />
+          <a class="install-tabs__more" href="/download/windows">Windows install guide →</a>
+        </div>
+        <p class="install-tabs__or">Or via winget:</p>
+        <CodeBlock code={wing} label="powershell" />
+        <p class="install-tabs__note">
+          First launch: SmartScreen → <strong>More info</strong> → <strong>Run anyway</strong>.
+          <a href="/download/windows#smartscreen">Why?</a>
+        </p>
+      </div>
+
+      <div class="install-tabs__panel install-tabs__panel--linux" role="tabpanel">
+        <div class="install-tabs__row">
+          <DownloadButton release={release} fixedOs="linux" />
+          <a class="install-tabs__more" href="/download/linux">Linux install guide →</a>
+        </div>
+        <p class="install-tabs__or">Then make it executable:</p>
+        <CodeBlock code={linux} label="terminal" />
+        <p class="install-tabs__note">
+          Set as your default mail client: <code>xdg-settings set default-url-scheme-handler mailto mailwing</code>
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .install__header { max-width: 640px; margin-bottom: var(--space-8); }
+  .install__lede { color: var(--text-muted); margin-top: var(--space-4); }
+
+  .install-tabs { position: relative; }
+  .install-tabs__radio { position: absolute; opacity: 0; pointer-events: none; }
+
+  .install-tabs__labels {
+    display: inline-flex;
+    gap: 4px;
+    padding: 4px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    margin-bottom: var(--space-6);
+  }
+  .install-tabs__labels label {
+    padding: 8px 18px;
+    border-radius: var(--radius-pill);
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 120ms ease, background 120ms ease;
+  }
+  .install-tabs__labels label:hover { color: var(--text); }
+
+  .install-tabs__panel { display: none; }
+
+  #tab-mac:checked ~ .install-tabs__labels label[for="tab-mac"],
+  #tab-win:checked ~ .install-tabs__labels label[for="tab-win"],
+  #tab-linux:checked ~ .install-tabs__labels label[for="tab-linux"] {
+    background: var(--text);
+    color: var(--bg);
+  }
+  #tab-mac:checked   ~ .install-tabs__panel--mac,
+  #tab-win:checked   ~ .install-tabs__panel--win,
+  #tab-linux:checked ~ .install-tabs__panel--linux {
+    display: block;
+  }
+
+  .install-tabs__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+  }
+  .install-tabs__more {
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+  .install-tabs__or {
+    color: var(--text-muted);
+    font-size: 14px;
+    margin-bottom: var(--space-3);
+  }
+  .install-tabs__note {
+    margin-top: var(--space-4);
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+  .install-tabs__note a { color: var(--accent); }
+</style>

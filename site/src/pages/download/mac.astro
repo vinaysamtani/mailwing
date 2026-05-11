@@ -1,0 +1,65 @@
+---
+import DownloadPageLayout from '@/layouts/DownloadPageLayout.astro';
+import CodeBlock from '@/components/CodeBlock.astro';
+import { getLatestRelease } from '@/lib/releases';
+import { SITE } from '@/lib/site';
+
+const release = await getLatestRelease();
+const xattr = `xattr -d com.apple.quarantine /Applications/Mailwing.app`;
+const brew  = `brew install --cask ${SITE.brewTap}`;
+---
+<DownloadPageLayout os="mac" osLabel="macOS" release={release}>
+  <h2>System requirements</h2>
+  <ul>
+    <li>macOS 11 Big Sur or later</li>
+    <li>Universal binary — runs natively on Intel and Apple Silicon</li>
+    <li>~250 MB free disk space</li>
+  </ul>
+
+  <h2>Install</h2>
+  <ol>
+    <li>Click <strong>Download</strong> above to grab the DMG.</li>
+    <li>Open the DMG and drag <strong>Mailwing</strong> to <code>/Applications</code>.</li>
+    <li>First launch: right-click the app icon → <strong>Open</strong> → <strong>Open</strong>.</li>
+  </ol>
+
+  <h2 id="gatekeeper">First-launch Gatekeeper</h2>
+  <p>
+    Mailwing isn't yet signed with an Apple Developer ID (signing fees run hundreds of dollars
+    a year per platform — out of scope for a one-person OSS project today). macOS will refuse
+    the first double-click on an unsigned app. Three ways to allow it, in order of friendliness:
+  </p>
+  <h3>Option 1 — Right-click → Open (recommended)</h3>
+  <ol>
+    <li>Open <code>/Applications</code> in Finder.</li>
+    <li>Right-click (or Control-click) <strong>Mailwing</strong> → <strong>Open</strong>.</li>
+    <li>In the dialog, click <strong>Open</strong> again. Trust is remembered from then on.</li>
+  </ol>
+  <h3>Option 2 — System Settings</h3>
+  <ol>
+    <li>Try to open Mailwing once (it'll be blocked).</li>
+    <li>Go to <strong>System Settings → Privacy &amp; Security</strong>.</li>
+    <li>Scroll down — there'll be a line saying Mailwing was blocked. Click <strong>Open Anyway</strong>.</li>
+  </ol>
+  <h3>Option 3 — Terminal</h3>
+  <p>If you'd rather strip the quarantine attribute in one go:</p>
+  <CodeBlock code={xattr} label="terminal" />
+
+  <h2>Install via Homebrew</h2>
+  <p>If you prefer a single command, the Homebrew cask handles download and placement for you:</p>
+  <CodeBlock code={brew} label="terminal" />
+
+  <h2>Make Mailwing your default mail client</h2>
+  <p>
+    Open Mailwing → menu bar <strong>Mailwing → Set as default mail client</strong>. Or via
+    System Settings → <strong>Default Web Browser</strong> (for mailto: links).
+  </p>
+
+  <h2>Troubleshooting</h2>
+  <h3>"Mailwing is damaged and can't be opened"</h3>
+  <p>This is the quarantine attribute, not actual damage. Run Option 3 above (the <code>xattr</code> command).</p>
+  <h3>App quits immediately on first launch</h3>
+  <p>Open <strong>Console.app</strong>, filter for <code>Mailwing</code>, then try to launch again. If you see a useful stack trace, please <a href={SITE.issues} target="_blank" rel="noopener">open an issue</a> with the log.</p>
+  <h3>How do I uninstall?</h3>
+  <p>Drag <code>/Applications/Mailwing.app</code> to the Trash, then remove the user-data directory at <code>~/Library/Application Support/mailwing</code> if you also want to clear accounts and notes.</p>
+</DownloadPageLayout>

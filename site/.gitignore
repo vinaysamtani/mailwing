@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.astro/
+.env
+.env.production
+.DS_Store
+*.log
+
+# Synced from /build/ by scripts/sync-assets.mjs — do not commit.
+public/img/icon.png
+public/img/social-preview.png

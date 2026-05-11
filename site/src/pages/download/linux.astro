@@ -1,0 +1,55 @@
+---
+import DownloadPageLayout from '@/layouts/DownloadPageLayout.astro';
+import CodeBlock from '@/components/CodeBlock.astro';
+import { getLatestRelease } from '@/lib/releases';
+import { SITE } from '@/lib/site';
+
+const release = await getLatestRelease();
+const linuxName = release.assets.linux?.name ?? `Mailwing-${release.version}.AppImage`;
+const runCmd = `chmod +x ${linuxName}\n./${linuxName}`;
+const mailto = `xdg-settings set default-url-scheme-handler mailto mailwing`;
+---
+<DownloadPageLayout os="linux" osLabel="Linux" release={release}>
+  <h2>System requirements</h2>
+  <ul>
+    <li>x86_64 distribution with glibc 2.31+ (Ubuntu 20.04+, Debian 11+, Fedora 33+, Arch, etc.)</li>
+    <li><code>libfuse2</code> available (required by AppImage)</li>
+    <li>Wayland and X11 both work</li>
+  </ul>
+
+  <h2>Install</h2>
+  <ol>
+    <li>Click <strong>Download</strong> above to grab the AppImage.</li>
+    <li>Make it executable and run it:</li>
+  </ol>
+  <CodeBlock code={runCmd} label="terminal" />
+
+  <div class="callout">
+    Want desktop integration (Mailwing in your launcher, icon set, mime handlers)? Install
+    <a href="https://github.com/TheAssassin/AppImageLauncher" target="_blank" rel="noopener">AppImageLauncher</a> —
+    it'll register the AppImage automatically the first time you run it.
+  </div>
+
+  <h2>Make Mailwing your default mail client</h2>
+  <CodeBlock code={mailto} label="terminal" />
+  <p>
+    Once registered, <code>mailto:</code> links from browsers, calendar apps and terminal
+    helpers will open in Mailwing.
+  </p>
+
+  <h2>Troubleshooting</h2>
+  <h3>"fuse: device not found" or AppImage won't launch</h3>
+  <p>Install <code>libfuse2</code> from your distro's repository:</p>
+  <CodeBlock code={`sudo apt install libfuse2`} label="ubuntu/debian" />
+  <CodeBlock code={`sudo dnf install fuse-libs`} label="fedora" />
+
+  <h3>Sandbox errors on certain distros</h3>
+  <p>
+    Some kernels (often hardened ones) refuse Electron's sandbox. As a last resort you can
+    pass <code>--no-sandbox</code>, but please <a href={SITE.issues} target="_blank" rel="noopener">open an issue</a>
+    first — there's usually a better fix.
+  </p>
+
+  <h3>How do I uninstall?</h3>
+  <p>Delete the AppImage file and the user-data directory at <code>~/.config/mailwing</code>.</p>
+</DownloadPageLayout>

@@ -1,0 +1,70 @@
+---
+import DownloadPageLayout from '@/layouts/DownloadPageLayout.astro';
+import CodeBlock from '@/components/CodeBlock.astro';
+import { getLatestRelease } from '@/lib/releases';
+import { SITE } from '@/lib/site';
+
+const release = await getLatestRelease();
+const wing = `winget install --id ${SITE.wingetId}`;
+---
+<DownloadPageLayout os="win" osLabel="Windows" release={release}>
+  <h2>System requirements</h2>
+  <ul>
+    <li>Windows 10 build 1809 or later, or Windows 11</li>
+    <li>x64 (64-bit)</li>
+    <li>~250 MB free disk space</li>
+  </ul>
+
+  <h2>Install</h2>
+  <ol>
+    <li>Click <strong>Download</strong> above to grab the installer.</li>
+    <li>Run the <code>.exe</code>. SmartScreen will pop up — see below.</li>
+    <li>Follow the wizard. Default install path is <code>%LOCALAPPDATA%\Programs\Mailwing</code>.</li>
+  </ol>
+
+  <h2 id="smartscreen">First-launch SmartScreen</h2>
+  <p>
+    Mailwing isn't yet signed with an EV code-signing certificate (these cost a few hundred
+    dollars a year — out of scope for an OSS project right now). Windows will show
+    "Microsoft Defender SmartScreen prevented an unrecognised app from starting":
+  </p>
+  <ol>
+    <li>Click <strong>More info</strong>.</li>
+    <li>Click <strong>Run anyway</strong>.</li>
+    <li>Windows remembers your choice for subsequent launches.</li>
+  </ol>
+  <div class="callout">
+    Every installer artifact is built in the open by GitHub Actions — you can
+    <a href="https://github.com/vinaysamtani/mailwing/actions" target="_blank" rel="noopener">audit the
+    full build provenance</a> for the version you downloaded.
+  </div>
+
+  <h2>Install via winget</h2>
+  <p>If you'd rather skip the SmartScreen dance and use Windows Package Manager:</p>
+  <CodeBlock code={wing} label="powershell" />
+
+  <h2>Make Mailwing your default mail client</h2>
+  <p>
+    <strong>Settings → Apps → Default apps</strong> → search "Mailwing" → set as the default
+    handler for <code>mailto</code> links.
+  </p>
+
+  <h2>Troubleshooting</h2>
+  <h3>Antivirus flags the installer</h3>
+  <p>
+    Some antivirus products treat unsigned NSIS installers as suspicious by default. The
+    binary is reproducible from the source on GitHub — feel free to verify or build yourself.
+    Worst case, add an exclusion for the install path.
+  </p>
+  <h3>Mailwing won't start after install</h3>
+  <p>
+    Open <strong>Event Viewer → Windows Logs → Application</strong> and look for an entry
+    sourced from <code>Mailwing</code>. <a href={SITE.issues} target="_blank" rel="noopener">Open an issue</a>
+    with the error text and we'll help.
+  </p>
+  <h3>How do I uninstall?</h3>
+  <p>
+    <strong>Settings → Apps → Installed apps</strong> → Mailwing → Uninstall. Account data
+    lives at <code>%APPDATA%\mailwing</code> — delete that folder too if you want a clean wipe.
+  </p>
+</DownloadPageLayout>

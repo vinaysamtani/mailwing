@@ -1,0 +1,66 @@
+---
+import PageLayout from '@/layouts/PageLayout.astro';
+import { loadChangelog } from '@/lib/changelog';
+import { SITE } from '@/lib/site';
+
+const { html, versions } = await loadChangelog();
+const recent = versions.slice(0, 8);
+---
+<PageLayout
+  title={`${SITE.name} Changelog — What's new`}
+  description={`Every release of ${SITE.name}, in order. Versioned, dated, and honest about what changed.`}
+>
+  <article class="changelog">
+    <div class="container container--narrow">
+      <header class="changelog__header">
+        <p class="changelog__eyebrow">Changelog</p>
+        <h1>What's new in {SITE.name}.</h1>
+        <p class="changelog__lede">
+          Pulled straight from <a href={`${SITE.repo}/blob/main/CHANGELOG.md`} target="_blank" rel="noopener">CHANGELOG.md</a>.
+          Built on <a href="https://keepachangelog.com/" target="_blank" rel="noopener">Keep a Changelog</a>, every release dated.
+        </p>
+        {recent.length > 0 && (
+          <nav class="changelog__nav" aria-label="Recent versions">
+            {recent.map(v => (
+              <a href={`#${v.anchor}`}>v{v.version}</a>
+            ))}
+          </nav>
+        )}
+      </header>
+
+      <div class="prose changelog__body" set:html={html} />
+    </div>
+  </article>
+</PageLayout>
+
+<style>
+  .changelog { padding: var(--space-12) 0 var(--space-16); }
+  .changelog__header { margin-bottom: var(--space-12); }
+  .changelog__eyebrow {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: var(--space-4);
+  }
+  .changelog__lede { color: var(--text-muted); margin-top: var(--space-4); }
+  .changelog__nav {
+    margin-top: var(--space-6);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .changelog__nav a {
+    padding: 4px 10px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 13px;
+    font-family: var(--font-mono);
+    text-decoration: none;
+    transition: color 120ms ease, border-color 120ms ease;
+  }
+  .changelog__nav a:hover { color: var(--text); border-color: var(--border-strong); }
+  .changelog__body :global(h1) { display: none; }
+</style>

@@ -1,0 +1,126 @@
+---
+import PageLayout from './PageLayout.astro';
+import DownloadButton from '@/components/DownloadButton.astro';
+import { formatBytes } from '@/lib/releases';
+import type { LatestRelease, Os } from '@/lib/releases.types';
+import { SITE } from '@/lib/site';
+
+interface Props {
+  os: Os;
+  osLabel: string;
+  release: LatestRelease;
+}
+const { os, osLabel, release } = Astro.props;
+const asset = release.assets[os];
+
+const title = `Download ${SITE.name} for ${osLabel} — v${release.version}`;
+const description = `Get ${SITE.name} v${release.version} for ${osLabel}. Native multi-provider email client. Free and open source.`;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: `${SITE.name} for ${osLabel}`,
+  operatingSystem: osLabel,
+  applicationCategory: 'CommunicationApplication',
+  softwareVersion: release.version,
+  license: SITE.license,
+  downloadUrl: asset?.url ?? SITE.releases,
+  fileSize: asset ? formatBytes(asset.size) : undefined,
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+};
+---
+<PageLayout title={title} description={description}>
+  <Fragment slot="head">
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+  </Fragment>
+
+  <article class="dl">
+    <div class="container container--narrow">
+      <header class="dl__header">
+        <p class="dl__eyebrow">Download · {osLabel}</p>
+        <h1>Get {SITE.name} for {osLabel}</h1>
+        <p class="dl__lede">Version {release.version}. Free and open source.</p>
+        <div class="dl__cta">
+          <DownloadButton release={release} fixedOs={os} />
+          {asset && (
+            <span class="dl__assetinfo">
+              <code>{asset.name}</code> · {formatBytes(asset.size)}
+            </span>
+          )}
+        </div>
+      </header>
+
+      <div class="dl__body">
+        <slot />
+      </div>
+
+      <footer class="dl__footer">
+        <p>
+          Looking for older versions? See <a href={SITE.releases} target="_blank" rel="noopener">all releases on GitHub →</a>
+        </p>
+      </footer>
+    </div>
+  </article>
+</PageLayout>
+
+<style>
+  .dl { padding: var(--space-12) 0 var(--space-16); }
+  .dl__header { margin-bottom: var(--space-12); }
+  .dl__eyebrow {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: var(--space-4);
+  }
+  .dl__lede { color: var(--text-muted); font-size: 17px; margin-top: var(--space-4); }
+  .dl__cta {
+    margin-top: var(--space-6);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    align-items: center;
+  }
+  .dl__assetinfo {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .dl__assetinfo code { font-size: 12px; }
+  .dl__body :global(h2) {
+    font-family: var(--font-serif);
+    font-size: 1.5rem;
+    margin-top: var(--space-12);
+    margin-bottom: var(--space-4);
+    scroll-margin-top: 96px;
+  }
+  .dl__body :global(h3) {
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    font-weight: 600;
+    margin-top: var(--space-6);
+    margin-bottom: var(--space-2);
+  }
+  .dl__body :global(ol),
+  .dl__body :global(ul) {
+    padding-left: var(--space-6);
+    line-height: 1.7;
+  }
+  .dl__body :global(li) { margin-bottom: var(--space-2); }
+  .dl__body :global(p) { line-height: 1.7; color: var(--text-muted); }
+  .dl__body :global(.callout) {
+    margin: var(--space-6) 0;
+    padding: var(--space-4) var(--space-6);
+    border-left: 3px solid var(--accent-warm);
+    background: color-mix(in srgb, var(--accent-warm) 6%, transparent);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    color: var(--text);
+  }
+  .dl__footer {
+    margin-top: var(--space-16);
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+</style>

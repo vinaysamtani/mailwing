@@ -1,0 +1,33 @@
+---
+interface Props {
+  animate?: boolean;
+  size?: number;
+  class?: string;
+}
+const { animate = false, size = 24, class: cls = '' } = Astro.props;
+---
+{animate ? (
+  <div class={`plane-track ${cls}`} aria-hidden="true">
+    <svg class="plane-inner" viewBox="0 0 24 24" width={size} height={size}>
+      <path
+        d="M22 2 2 10.2l8 2.3L13 22l9-20Z"
+        fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"
+      />
+      <path
+        d="M10 12.5 22 2"
+        fill="none" stroke="color-mix(in srgb, var(--text) 30%, transparent)" stroke-width="1" stroke-linecap="round"
+      />
+    </svg>
+  </div>
+) : (
+  <svg class={cls} viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
+    <path
+      d="M22 2 2 10.2l8 2.3L13 22l9-20Z"
+      fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"
+    />
+    <path
+      d="M10 12.5 22 2"
+      fill="none" stroke="color-mix(in srgb, var(--text) 30%, transparent)" stroke-width="1" stroke-linecap="round"
+    />
+  </svg>
+)}

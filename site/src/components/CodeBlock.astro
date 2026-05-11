@@ -1,0 +1,91 @@
+---
+interface Props {
+  code: string;
+  lang?: string;
+  label?: string;
+}
+const { code, lang, label } = Astro.props;
+---
+<div class="code-block">
+  {label && <span class="code-block__label">{label}</span>}
+  <pre class="code-block__pre"><code data-code-content>{code}</code></pre>
+  <button type="button" class="code-block__copy" data-copy aria-label="Copy code to clipboard">
+    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2" />
+      <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+    </svg>
+    <span data-copy-label>Copy</span>
+  </button>
+</div>
+
+<style>
+  .code-block {
+    position: relative;
+    background: var(--code-bg);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    padding: var(--space-4) var(--space-4) var(--space-4) var(--space-4);
+  }
+  .code-block__label {
+    position: absolute;
+    top: -10px;
+    left: 12px;
+    background: var(--bg);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 0 6px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .code-block__pre {
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    overflow-x: auto;
+    font-size: 14px;
+  }
+  .code-block__copy {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    cursor: pointer;
+    transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+  }
+  .code-block__copy:hover { color: var(--text); border-color: var(--border-strong); }
+  .code-block__copy[data-copied] { color: var(--accent); border-color: var(--accent); }
+</style>
+
+<script>
+  const buttons = document.querySelectorAll<HTMLButtonElement>('[data-copy]');
+  for (const btn of buttons) {
+    btn.addEventListener('click', async () => {
+      const code = btn.parentElement?.querySelector<HTMLElement>('[data-code-content]');
+      if (!code) return;
+      try {
+        await navigator.clipboard.writeText(code.textContent ?? '');
+        const label = btn.querySelector<HTMLElement>('[data-copy-label]');
+        if (!label) return;
+        const prev = label.textContent;
+        label.textContent = 'Copied';
+        btn.setAttribute('data-copied', '');
+        setTimeout(() => {
+          label.textContent = prev ?? 'Copy';
+          btn.removeAttribute('data-copied');
+        }, 1500);
+      } catch {
+        // clipboard denied — no-op
+      }
+    });
+  }
+</script>

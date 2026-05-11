@@ -1,0 +1,39 @@
+---
+import PageLayout from '@/layouts/PageLayout.astro';
+import { SITE } from '@/lib/site';
+---
+<PageLayout title={`404 — Page not found · ${SITE.name}`} description="Page not found." noIndex>
+  <section class="nf">
+    <div class="container container--narrow nf__inner">
+      <p class="nf__code">404</p>
+      <h1 class="nf__title">This page took a paper plane the wrong way.</h1>
+      <p class="nf__sub">The address didn't match anything on {SITE.name}. Maybe one of these instead:</p>
+      <div class="nf__links">
+        <a class="btn btn--primary" href="/">Back home</a>
+        <a class="btn btn--secondary" href="/changelog">Changelog</a>
+        <a class="btn btn--secondary" href={SITE.repo} target="_blank" rel="noopener">GitHub ↗</a>
+      </div>
+    </div>
+  </section>
+</PageLayout>
+
+<style>
+  .nf { padding: var(--space-24) 0; text-align: center; }
+  .nf__inner { display: flex; flex-direction: column; align-items: center; gap: var(--space-4); }
+  .nf__code {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    margin: 0;
+  }
+  .nf__title { max-width: 16ch; }
+  .nf__sub { color: var(--text-muted); max-width: 40ch; }
+  .nf__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    justify-content: center;
+    margin-top: var(--space-6);
+  }
+</style>

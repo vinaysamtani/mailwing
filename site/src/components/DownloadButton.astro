@@ -1,0 +1,106 @@
+---
+import type { LatestRelease } from '@/lib/releases.types';
+import { formatBytes } from '@/lib/releases';
+
+interface Props {
+  release: LatestRelease;
+  primary?: boolean;
+  fixedOs?: 'mac' | 'win' | 'linux';
+}
+const { release, primary = true, fixedOs } = Astro.props;
+
+const labels = {
+  mac:   'Download for macOS',
+  win:   'Download for Windows',
+  linux: 'Download for Linux',
+} as const;
+const pageMap = { mac: '/download/mac', win: '/download/windows', linux: '/download/linux' } as const;
+
+const defaultOs = fixedOs ?? 'mac';
+const defaultLabel = labels[defaultOs];
+const defaultAsset = release.assets[defaultOs];
+const defaultHref = pageMap[defaultOs];
+
+const macSize   = release.assets.mac   ? formatBytes(release.assets.mac.size)   : '';
+const winSize   = release.assets.win   ? formatBytes(release.assets.win.size)   : '';
+const linuxSize = release.assets.linux ? formatBytes(release.assets.linux.size) : '';
+---
+<a
+  class={`btn ${primary ? 'btn--primary' : 'btn--secondary'} dl-btn`}
+  href={defaultHref}
+  data-dl-button
+  data-mac-size={macSize}
+  data-win-size={winSize}
+  data-linux-size={linuxSize}
+  data-fixed-os={fixedOs ?? ''}
+>
+  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3v13" />
+    <path d="m7 11 5 5 5-5" />
+    <path d="M5 21h14" />
+  </svg>
+  <span class="dl-btn__text">
+    <span data-dl-label>{defaultLabel}</span>
+    <span class="dl-btn__sub" data-dl-sub>v{release.version}{defaultAsset ? ` · ${formatBytes(defaultAsset.size)}` : ''}</span>
+  </span>
+</a>
+
+<style>
+  .dl-btn { padding: 14px 22px; }
+  .dl-btn__text {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.15;
+    gap: 2px;
+  }
+  .dl-btn__sub {
+    font-size: 12px;
+    font-weight: 400;
+    opacity: 0.85;
+  }
+</style>
+
+<script>
+  const btns = document.querySelectorAll<HTMLAnchorElement>('[data-dl-button]');
+  if (btns.length) {
+    const ua = navigator.userAgent;
+    const uaData = (navigator as any).userAgentData;
+    let os: 'mac' | 'win' | 'linux' = 'mac';
+    if (uaData?.platform) {
+      const p = String(uaData.platform).toLowerCase();
+      if (p.includes('mac'))           os = 'mac';
+      else if (p.includes('windows'))  os = 'win';
+      else if (p.includes('linux'))    os = 'linux';
+    } else {
+      if (/Windows/i.test(ua))                                     os = 'win';
+      else if (/Linux|X11/i.test(ua) && !/Android/i.test(ua))      os = 'linux';
+      else                                                          os = 'mac';
+    }
+
+    const labels = {
+      mac: 'Download for macOS',
+      win: 'Download for Windows',
+      linux: 'Download for Linux',
+    } as const;
+    const hrefs = {
+      mac: '/download/mac',
+      win: '/download/windows',
+      linux: '/download/linux',
+    } as const;
+    const sizeAttrs = { mac: 'macSize', win: 'winSize', linux: 'linuxSize' } as const;
+
+    for (const btn of btns) {
+      if (btn.dataset.fixedOs) continue;
+      btn.href = hrefs[os];
+      const labelEl = btn.querySelector<HTMLElement>('[data-dl-label]');
+      const subEl   = btn.querySelector<HTMLElement>('[data-dl-sub]');
+      if (labelEl) labelEl.textContent = labels[os];
+      if (subEl) {
+        const size = btn.dataset[sizeAttrs[os]];
+        const version = subEl.textContent?.split('·')[0]?.trim() ?? '';
+        subEl.textContent = size ? `${version} · ${size}` : version;
+      }
+    }
+  }
+</script>

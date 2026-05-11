@@ -1,0 +1,80 @@
+---
+import '@/styles/global.css';
+import { SITE } from '@/lib/site';
+
+interface Props {
+  title?: string;
+  description?: string;
+  ogImage?: string;
+  canonicalPath?: string;
+  noIndex?: boolean;
+}
+
+const {
+  title = `${SITE.name} — ${SITE.tagline}`,
+  description = SITE.description,
+  ogImage = SITE.ogImage,
+  canonicalPath = Astro.url.pathname,
+  noIndex = false,
+} = Astro.props;
+
+const canonical = new URL(canonicalPath, SITE.url).toString();
+const ogImageUrl = new URL(ogImage, SITE.url).toString();
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{title}</title>
+  <meta name="description" content={description} />
+  <link rel="canonical" href={canonical} />
+  {noIndex && <meta name="robots" content="noindex,nofollow" />}
+
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#FBFAF7" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0F1218" media="(prefers-color-scheme: dark)" />
+
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" href="/img/icon.png" />
+  <link rel="apple-touch-icon" href="/img/icon.png" />
+
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:image" content={ogImageUrl} />
+  <meta property="og:image:width" content="1280" />
+  <meta property="og:image:height" content="640" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content={canonical} />
+  <meta property="og:site_name" content={SITE.name} />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={title} />
+  <meta name="twitter:description" content={description} />
+  <meta name="twitter:image" content={ogImageUrl} />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,400..700,30..100;1,9..144,400..700,30..100&display=swap"
+  />
+
+  <script is:inline>
+    (() => {
+      try {
+        const m = window.matchMedia('(prefers-color-scheme: dark)');
+        document.documentElement.setAttribute('data-theme', m.matches ? 'dark' : 'light');
+        m.addEventListener?.('change', e => {
+          document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+        });
+      } catch {}
+    })();
+  </script>
+
+  <slot name="head" />
+</head>
+<body>
+  <slot />
+</body>
+</html>

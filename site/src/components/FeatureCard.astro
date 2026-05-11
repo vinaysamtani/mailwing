@@ -1,0 +1,50 @@
+---
+import FeatureIcon from './FeatureIcon.astro';
+
+interface Props {
+  title: string;
+  body: string;
+  icon: string;
+}
+const { title, body, icon } = Astro.props;
+---
+<article class="feature-card lift">
+  <div class="feature-card__icon"><FeatureIcon id={icon} /></div>
+  <h3 class="feature-card__title">{title}</h3>
+  <p class="feature-card__body">{body}</p>
+</article>
+
+<style>
+  .feature-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    height: 100%;
+  }
+  .feature-card__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    color: var(--accent);
+    margin-bottom: var(--space-4);
+  }
+  .feature-card__title {
+    font-family: var(--font-sans);
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: var(--space-2);
+    letter-spacing: -0.005em;
+    font-variation-settings: normal;
+  }
+  .feature-card__body {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 0;
+    line-height: 1.6;
+  }
+</style>

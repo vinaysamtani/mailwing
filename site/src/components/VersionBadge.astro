@@ -1,0 +1,49 @@
+---
+import { formatDate } from '@/lib/releases';
+
+interface Props {
+  version: string;
+  publishedAt: string;
+  href?: string;
+}
+const { version, publishedAt, href } = Astro.props;
+const date = formatDate(publishedAt);
+---
+{href ? (
+  <a class="version-badge" href={href} target="_blank" rel="noopener">
+    <span class="version-badge__dot" aria-hidden="true" />
+    Latest · v{version} · {date}
+  </a>
+) : (
+  <span class="version-badge">
+    <span class="version-badge__dot" aria-hidden="true" />
+    Latest · v{version} · {date}
+  </span>
+)}
+
+<style>
+  .version-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+    transition: background 120ms ease;
+  }
+  a.version-badge:hover {
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+  .version-badge__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 8px currentColor;
+  }
+</style>
