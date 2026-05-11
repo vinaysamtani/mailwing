@@ -139,3 +139,21 @@ jobs:
           body: "See CHANGELOG.md for what's new in this release."
           files: release-files/*
           make_latest: true
+
+  # ── After the release is published, nudge mailwing.app to rebuild ───────────
+  refresh-site:
+    name: Refresh mailwing.app
+    needs: release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Trigger Cloudflare Pages deploy hook
+        env:
+          HOOK_URL: ${{ secrets.CLOUDFLARE_PAGES_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK_URL" ]; then
+            echo "::warning::CLOUDFLARE_PAGES_DEPLOY_HOOK is not set — skipping site refresh."
+            exit 0
+          fi
+          curl --fail --silent --show-error -X POST "$HOOK_URL"
+          echo "Pages rebuild requested."
