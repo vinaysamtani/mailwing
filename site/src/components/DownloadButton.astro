@@ -19,7 +19,12 @@ const pageMap = { mac: '/download/mac', win: '/download/windows', linux: '/downl
 const defaultOs = fixedOs ?? 'mac';
 const defaultLabel = labels[defaultOs];
 const defaultAsset = release.assets[defaultOs];
-const defaultHref = pageMap[defaultOs];
+
+// When fixedOs is set, link directly to the asset (the page already shows install context).
+// Without fixedOs (hero), link to the /download/{os} info page so users see install steps first.
+const defaultHref = fixedOs
+  ? (defaultAsset?.url ?? release.htmlUrl)
+  : pageMap[defaultOs];
 
 const macSize   = release.assets.mac   ? formatBytes(release.assets.mac.size)   : '';
 const winSize   = release.assets.win   ? formatBytes(release.assets.win.size)   : '';
@@ -28,6 +33,7 @@ const linuxSize = release.assets.linux ? formatBytes(release.assets.linux.size) 
 <a
   class={`btn ${primary ? 'btn--primary' : 'btn--secondary'} dl-btn`}
   href={defaultHref}
+  download={fixedOs && defaultAsset ? defaultAsset.name : undefined}
   data-dl-button
   data-mac-size={macSize}
   data-win-size={winSize}

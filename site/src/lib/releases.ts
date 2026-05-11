@@ -8,7 +8,7 @@ const FALLBACK: LatestRelease = {
   htmlUrl: `${SITE.releases}/tag/v1.2.1`,
   assets: {
     mac:   { os: 'mac',   name: 'Mailwing-1.2.1-universal.dmg', url: `${SITE.releases}/download/v1.2.1/Mailwing-1.2.1-universal.dmg`, size: 125_000_000 },
-    win:   { os: 'win',   name: 'Mailwing-Setup-1.2.1.exe',     url: `${SITE.releases}/download/v1.2.1/Mailwing-Setup-1.2.1.exe`,     size: 95_000_000  },
+    win:   { os: 'win',   name: 'Mailwing.Setup.1.2.1.exe',     url: `${SITE.releases}/download/v1.2.1/Mailwing.Setup.1.2.1.exe`,     size: 95_000_000  },
     linux: { os: 'linux', name: 'Mailwing-1.2.1.AppImage',      url: `${SITE.releases}/download/v1.2.1/Mailwing-1.2.1.AppImage`,      size: 140_000_000 },
   },
 };
