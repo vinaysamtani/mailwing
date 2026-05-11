@@ -155,7 +155,7 @@ pre code {
 }
 .prose ul { padding-left: var(--space-6); margin: 0 0 var(--space-6); }
 .prose li { margin: var(--space-2) 0; }
-.prose li strong { color: var(--accent-warm); font-weight: 600; }
+.prose li strong { color: var(--accent-deep); font-weight: 600; }
 .prose hr {
   border: none;
   border-top: 1px solid var(--border);
@@ -163,7 +163,7 @@ pre code {
 }
 .prose a { color: var(--accent); }
 .prose blockquote {
-  border-left: 3px solid var(--accent-warm);
+  border-left: 3px solid var(--accent-deep);
   margin: var(--space-6) 0;
   padding: var(--space-2) var(--space-6);
   color: var(--text-muted);

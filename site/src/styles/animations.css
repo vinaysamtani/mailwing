@@ -19,13 +19,14 @@
   offset-rotate: auto;
   animation: plane-drift 14s ease-in-out infinite;
   pointer-events: none;
-  color: var(--accent-warm);
+  color: var(--accent-deep);
 }
 .plane-track > .plane-inner {
   animation: plane-bob 3s ease-in-out infinite;
   display: block;
   width: 100%;
   height: 100%;
+  opacity: 0.55;
 }
 
 /* ---- provider dots ---- */

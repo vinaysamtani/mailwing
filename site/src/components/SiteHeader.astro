@@ -4,12 +4,15 @@ import { SITE } from '@/lib/site';
 <header class="site-header">
   <div class="container site-header__inner">
     <a class="site-header__brand" href="/" aria-label={`${SITE.name} home`}>
-      <svg class="site-header__plane" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <svg class="site-header__brand-glyph" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
         <path
-          d="M21 3 3 10.5l7.5 2L13 21l8-18Z"
-          fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"
+          d="M5 9 L12 14 L19 9 L24 14 L19 21 L5 21 L0 14 Z"
+          fill="currentColor" stroke="currentColor" stroke-width="0.8" stroke-linejoin="round"
         />
-        <path d="m10.5 12.5 4-4" fill="none" stroke="rgba(0,0,0,0.18)" stroke-width="1" stroke-linecap="round" />
+        <path
+          d="M5 9 L12 14 L19 9"
+          fill="none" stroke="color-mix(in srgb, var(--bg) 65%, transparent)" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"
+        />
       </svg>
       <span class="site-header__wordmark">{SITE.name}</span>
     </a>
@@ -53,7 +56,7 @@ import { SITE } from '@/lib/site';
     font-weight: 600;
     text-decoration: none;
   }
-  .site-header__plane { color: var(--accent-warm); }
+  .site-header__brand-glyph { color: var(--accent); }
   .site-header__wordmark {
     font-family: var(--font-serif);
     font-size: 1.25rem;

@@ -1,4 +1,6 @@
 ---
+// Brand glyph — winged envelope, modelled on the app icon.
+// (Component kept under the old PaperPlane.astro filename so callers don't move.)
 interface Props {
   animate?: boolean;
   size?: number;
@@ -10,24 +12,24 @@ const { animate = false, size = 24, class: cls = '' } = Astro.props;
   <div class={`plane-track ${cls}`} aria-hidden="true">
     <svg class="plane-inner" viewBox="0 0 24 24" width={size} height={size}>
       <path
-        d="M22 2 2 10.2l8 2.3L13 22l9-20Z"
-        fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"
+        d="M5 9 L12 14 L19 9 L24 14 L19 21 L5 21 L0 14 Z"
+        fill="currentColor" stroke="currentColor" stroke-width="0.8" stroke-linejoin="round"
       />
       <path
-        d="M10 12.5 22 2"
-        fill="none" stroke="color-mix(in srgb, var(--text) 30%, transparent)" stroke-width="1" stroke-linecap="round"
+        d="M5 9 L12 14 L19 9"
+        fill="none" stroke="color-mix(in srgb, var(--bg) 65%, transparent)" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"
       />
     </svg>
   </div>
 ) : (
   <svg class={cls} viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
     <path
-      d="M22 2 2 10.2l8 2.3L13 22l9-20Z"
-      fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"
+      d="M5 9 L12 14 L19 9 L24 14 L19 21 L5 21 L0 14 Z"
+      fill="currentColor" stroke="currentColor" stroke-width="0.8" stroke-linejoin="round"
     />
     <path
-      d="M10 12.5 22 2"
-      fill="none" stroke="color-mix(in srgb, var(--text) 30%, transparent)" stroke-width="1" stroke-linecap="round"
+      d="M5 9 L12 14 L19 9"
+      fill="none" stroke="color-mix(in srgb, var(--bg) 65%, transparent)" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"
     />
   </svg>
 )}
