@@ -26,6 +26,12 @@ let activeKey = null;
 const UPDATE_BANNER_HEIGHT = 36; // matches #update-banner height in styles.css
 let bannerVisible = false;
 
+// macOS: leave a thin strip at the top of the content area for the renderer's
+// #title-drag-bar so the user can drag / double-click the top of the window
+// (the BrowserView covers the area and can't itself be a drag region).
+// Height matches #title-drag-bar in styles.css.
+const TITLEBAR_HEIGHT = process.platform === 'darwin' ? 28 : 0;
+
 // Subdomain patterns used by every provider's sign-in / auth flow. The
 // post-popup-close handler reloads the parent BrowserView only when a popup
 // has touched one of these — so calendar-invite RSVP popups, "compose in new
@@ -56,7 +62,9 @@ function getBannerOffset() {
 
 function getViewBounds() {
   const { width, height } = mainWin.getContentBounds();
-  const offset = getBannerOffset();
+  // The banner overlays the drag bar when visible, so use whichever is taller
+  // rather than stacking — keeps the BrowserView from being pushed down twice.
+  const offset = Math.max(getBannerOffset(), TITLEBAR_HEIGHT);
   return {
     x:      SIDEBAR_WIDTH,
     y:      offset,

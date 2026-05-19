@@ -9,6 +9,11 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <!-- macOS: thin draggable strip at the top of the content area so the user
+       can drag/double-click the top of the window like a native title bar.
+       Hidden on Windows/Linux which already have a real title bar. -->
+  <div id="title-drag-bar" aria-hidden="true"></div>
+
   <!-- Update banner: shown by renderer when a newer GitHub release is detected.
        Click Download → opens the release page in the system browser.
        Click × → stores dismissedVersion so this version isn't advertised again. -->

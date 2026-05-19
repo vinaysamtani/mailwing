@@ -67,6 +67,24 @@ html, body {
 /* macOS: traffic lights sit at (10, 14) — push content below them */
 body.macos #sidebar { padding-top: 46px; }
 
+/* ── Title drag bar (macOS) ──────────────────────────────────────────────────
+   Thin strip across the top of the content area (right of the sidebar).
+   Makes the top of the window drag/double-click like a native title bar, since
+   the BrowserView covers the content area and can't itself be a drag region.
+   Height matches viewManager's TITLEBAR_HEIGHT and the BrowserView's y offset. */
+#title-drag-bar { display: none; }
+body.macos #title-drag-bar {
+  display:    block;
+  position:   fixed;
+  top:        0;
+  left:       var(--sidebar-width);
+  right:      0;
+  height:     28px;
+  background: var(--bg);
+  z-index:    5;                  /* below sidebar (10) and banner (1500) */
+  -webkit-app-region: drag;
+}
+
 /* ── Account list ────────────────────────────────────────────────────────── */
 #account-list {
   display:        flex;
