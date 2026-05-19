@@ -12,6 +12,7 @@ const tray            = require('./tray');
 const darkMode        = require('./darkMode');
 const ipcHandlers     = require('./ipcHandlers');
 const updateChecker   = require('./updateChecker');
+const sessionManager  = require('./sessionManager');
 
 // ─── Performance flags ───────────────────────────────────────────────────────
 // Must be set before app is ready.
@@ -40,6 +41,10 @@ const GITHUB_REPO = 'https://github.com/vinaysamtani/mailwing';
 
 let mainWin    = null;
 let forceQuit  = false; // set to true by before-quit so the close handler lets the window go
+
+// Keep references to open compose windows so they aren't garbage-collected
+// while they're still on screen.
+const composeWindows = new Set();
 
 function setAppMenu(win) {
   const { IPC } = require('../shared/constants');
@@ -279,17 +284,63 @@ function openMailtoInAccount(account, rawUrl) {
   const provider = PROVIDERS[account.provider];
   if (!provider) return;
 
-  viewManager.showView(account.id, provider.defaultService);
+  // Open the compose URL in its own BrowserWindow that shares the account's
+  // session partition. The pre-warmed mail BrowserView stays untouched —
+  // no full-page reload, no blank flash, and the user's inbox is still there
+  // after they hit send. The shared session means cookies/auth carry over so
+  // the provider treats this as the signed-in user.
+  const sess = sessionManager.getOrCreateSession(account.id, provider);
+  const titleLabel = account.email || provider.label;
 
-  // Give the view a moment to initialise if it was just created
-  setTimeout(() => {
-    const view = viewManager.getView(account.id, provider.defaultService);
-    if (view && !view.webContents.isDestroyed()) {
-      view.webContents.loadURL(provider.mailtoComposeUrl(rawUrl));
+  const composeWin = new BrowserWindow({
+    width:  900,
+    height: 680,
+    title:  `Compose — ${titleLabel}`,
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#1e1e1e' : '#f0f2f5',
+    icon: path.join(__dirname, '../../build/icon.png'),
+    webPreferences: {
+      session:          sess,
+      contextIsolation: true,
+      nodeIntegration:  false,
+      spellcheck:       true,
+    },
+  });
+
+  // Keep our chosen title — the provider's page title (e.g. "Inbox - user@…")
+  // is misleading for a compose window.
+  composeWin.webContents.on('page-title-updated', (e) => e.preventDefault());
+
+  // Mirror viewManager's popup rules: provider/auth hosts open in-app on the
+  // shared session (passkey, OAuth, "open in new window"); everything else
+  // opens in the OS browser.
+  composeWin.webContents.setWindowOpenHandler(({ url }) => {
+    let isSafe = false;
+    try {
+      const { hostname } = new URL(url);
+      isSafe = provider.safeDomains.some(
+        d => hostname === d || hostname.endsWith('.' + d)
+      );
+    } catch { /* invalid URL → open externally */ }
+
+    if (!isSafe) {
+      shell.openExternal(url);
+      return { action: 'deny' };
     }
-  }, 400);
+    return {
+      action: 'allow',
+      overrideBrowserWindowOptions: {
+        webPreferences: {
+          partition:        'persist:mailwing-' + account.id,
+          contextIsolation: true,
+          nodeIntegration:  false,
+        },
+      },
+    };
+  });
 
-  mainWin.show();
-  mainWin.focus();
+  composeWin.loadURL(provider.mailtoComposeUrl(rawUrl));
+  composeWindows.add(composeWin);
+  composeWin.on('closed', () => composeWindows.delete(composeWin));
+
   app.focus({ steal: true });
 }
