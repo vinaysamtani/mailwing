@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 2026-05-19
+
+### Fixed
+- Clicking a `mailto:` link from another app no longer "hangs" after you pick an account in the picker. Compose now opens in its own window sharing the account's session partition, instead of navigating the warmed mailbox view to the provider's compose URL — no more blank-screen reload, no more out-of-sync sidebar highlight, and your inbox is still there after you send.
+
+### Added
+- macOS: a thin (28 px) draggable strip across the top of the content area so the top of the window behaves like a native title bar — drag to move, double-click to zoom (per System Settings → Desktop & Dock). The strip uses the sidebar background so the chrome forms an inverted L; traffic lights stay where they were. Windows/Linux are unchanged.
+
 ## [1.2.1] - 2026-05-07
 
 ### Fixed
