@@ -72,24 +72,30 @@ jobs:
           #   APPLE_ID                     - Apple Developer account email
           #   APPLE_APP_SPECIFIC_PASSWORD  - app-specific password from appleid.apple.com
           #   APPLE_TEAM_ID                - 10-char Team ID from developer.apple.com/account
-          CSC_IDENTITY_AUTO_DISCOVERY: false
           CSC_LINK: ${{ secrets.APPLE_CERTIFICATE }}
           CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        # When APPLE_CERTIFICATE is unset, electron-builder still treats the empty
-        # CSC_LINK as "sign with this empty path" and fails. Force `mac.identity=null`
-        # in that case so the macOS build is unsigned and continues. When a real
-        # certificate IS configured, the conditional drops the override and signing
-        # proceeds normally.
+        # Signing hinges on whether a certificate is present in CSC_LINK:
+        #   • Cert present  → CSC_IDENTITY_AUTO_DISCOVERY=true so electron-builder
+        #     imports the .p12 and signs. Leaving it false makes it SKIP signing
+        #     even though CSC_LINK is set (notarisation then fails on an adhoc app).
+        #   • Cert absent (PR builds) → disable discovery AND force mac.identity=null,
+        #     otherwise electron-builder treats the empty CSC_LINK as "sign with this
+        #     empty path" and fails. The build then ships unsigned and continues.
         # `shell: bash` is needed on Windows — the default PowerShell runner can't
         # parse the conditional. Git Bash is bundled on the windows-latest image.
         shell: bash
         run: |
           EXTRA=""
-          if [ "${{ runner.os }}" = "macOS" ] && [ -z "$CSC_LINK" ]; then
-            EXTRA="-c.mac.identity=null"
+          if [ -n "$CSC_LINK" ]; then
+            export CSC_IDENTITY_AUTO_DISCOVERY=true
+          else
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+            if [ "${{ runner.os }}" = "macOS" ]; then
+              EXTRA="-c.mac.identity=null"
+            fi
           fi
           npm run ${{ matrix.build_cmd }} -- --publish never ${{ matrix.build_args }} $EXTRA
 
