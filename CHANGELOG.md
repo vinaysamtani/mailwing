@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0-beta.1] - 2026-05-28
+
+> **Pre-release / testing build.** Flagged as a pre-release on GitHub and not marked "Latest", so stable users are never auto-served it. Auto-update keeps beta builds on the beta channel.
+
+### Added
+- **Apps Panel** — pin web apps (Cloudflare, GitHub, GitLab, Slack, Linear, Notion, Figma, Stripe, ChatGPT, Claude, …) in the sidebar alongside your email accounts. Each app runs in its own isolated session, is organised by category in the picker, and inactive apps hibernate to free memory.
+- **One-click auto-update** — new versions now download in the background and install on a single "Restart to update" click, powered by `electron-updater`. This replaces the notification-only banner from 1.2.0 (which only opened the releases page). Updates are channel-aware: a pre-release build tracks the beta channel, a stable build only sees stable releases.
+
+### Changed
+- Build pipeline publishes update metadata (`latest*.yml`) and a macOS `.zip` target as release assets so `electron-updater` can find new versions; a semver pre-release tag (e.g. `v1.3.0-beta.1`) is flagged as a GitHub pre-release automatically.
+- README macOS section updated for signed + notarised builds — the Gatekeeper workaround is no longer documented.
+
 ## [1.2.3] - 2026-05-26
 
 ### Changed
