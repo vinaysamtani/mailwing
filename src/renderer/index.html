@@ -31,13 +31,17 @@
     <div class="divider"></div>
     <div id="service-list"></div>
     <div class="sidebar-bottom">
-      <button id="notes-btn" title="Notes" aria-label="Notes">
-        <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M5 3h9l4 4v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/>
-          <polyline points="14,3 14,7 18,7"/>
-          <line x1="7" y1="11" x2="15" y2="11"/>
-          <line x1="7" y1="14" x2="15" y2="14"/>
-          <line x1="7" y1="17" x2="12" y2="17"/>
+      <button id="apps-btn" title="Apps" aria-label="Apps">
+        <svg viewBox="0 0 22 22" fill="currentColor">
+          <rect x="3"  y="3"  width="4" height="4" rx="1"/>
+          <rect x="9"  y="3"  width="4" height="4" rx="1"/>
+          <rect x="15" y="3"  width="4" height="4" rx="1"/>
+          <rect x="3"  y="9"  width="4" height="4" rx="1"/>
+          <rect x="9"  y="9"  width="4" height="4" rx="1"/>
+          <rect x="15" y="9"  width="4" height="4" rx="1"/>
+          <rect x="3"  y="15" width="4" height="4" rx="1"/>
+          <rect x="9"  y="15" width="4" height="4" rx="1"/>
+          <rect x="15" y="15" width="4" height="4" rx="1"/>
         </svg>
       </button>
       <button id="report-bug-btn" title="Report a Bug" aria-label="Report a Bug">
@@ -53,6 +57,18 @@
     </div>
   </aside>
 
+  <!-- Apps sub-sidebar: lists app accounts when the Apps Panel is open.
+       Sits between the main sidebar (72px) and the content area. Hidden by
+       default; revealed via body.apps-panel-open. -->
+  <aside id="apps-list" class="hidden" aria-label="Apps list">
+    <div class="apps-list-header">Apps</div>
+    <div id="apps-list-items"></div>
+    <button id="add-app-btn" type="button">
+      <span class="add-app-plus">+</span>
+      <span class="add-app-label">Add app</span>
+    </button>
+  </aside>
+
   <!-- Right content area: shown when no BrowserView is active -->
   <main id="content-area">
     <div id="welcome-screen">
@@ -61,6 +77,38 @@
       <p class="welcome-sub">Your multi-provider email client</p>
       <div class="welcome-providers" id="welcome-providers"></div>
       <p class="welcome-hint">You can also click <strong>+</strong> in the sidebar at any time</p>
+    </div>
+
+    <!-- Apps Panel: Notes view. Shown when the Notes entry is the active
+         apps-list selection. The BrowserView is hidden while this is visible. -->
+    <div id="apps-notes-view" class="hidden" role="region" aria-label="Notes">
+      <div class="apps-notes-content">
+        <h2 class="apps-view-title">Notes</h2>
+        <p class="notes-subtitle">
+          A personal scratch space for quick notes and todos.
+          Press <kbd>Enter</kbd> to add, <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line. Everything stays on this Mac.
+        </p>
+        <textarea id="notes-input" class="modal-textarea modal-textarea-sm"
+          placeholder="Type a note and press Enter… (Shift+Enter for a new line)"></textarea>
+        <ul id="notes-list" class="notes-list"></ul>
+        <div id="notes-empty" class="notes-empty hidden">
+          Nothing here yet. Type something above and press Enter.
+        </div>
+      </div>
+    </div>
+
+    <!-- Apps Panel: empty state when panel is open with nothing selectable
+         beyond the built-in Notes entry. -->
+    <div id="apps-empty-state" class="hidden">
+      <div class="welcome-icon">▦</div>
+      <h1 class="welcome-title">Apps</h1>
+      <p class="welcome-sub">Add your favourite web apps and keep them just one click away.</p>
+    </div>
+
+    <!-- Apps Panel: loading overlay shown on first add and during rehydration. -->
+    <div id="app-loading" class="hidden" aria-live="polite">
+      <div class="app-loading-spinner" aria-hidden="true"></div>
+      <div class="app-loading-label">Loading…</div>
     </div>
   </main>
 
@@ -93,26 +141,75 @@
     </div>
   </div>
 
-  <!-- Notes modal -->
-  <div id="notes-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="notes-modal-title">
-    <div class="modal-dialog notes-dialog">
-      <div class="notes-header">
-        <h2 id="notes-modal-title" class="modal-title">Notes</h2>
-        <button id="notes-close" class="notes-close-btn" title="Close" aria-label="Close">×</button>
+  <!-- Add App modal: two-step flow.
+       Step 1 — pick a registry entry (grouped by category) or "Custom URL".
+       Step 2 — edit label, URL, optional accent colour, save. -->
+  <div id="add-app-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="add-app-title">
+    <div class="modal-dialog add-app-dialog">
+      <h2 id="add-app-title" class="modal-title">Add App</h2>
+
+      <!-- Step 1: pick -->
+      <div class="add-app-step" data-step="1">
+        <input id="add-app-search" type="search" class="modal-input" placeholder="Search apps…" autocomplete="off">
+        <div id="add-app-registry" class="add-app-registry"></div>
+        <button id="add-app-custom-btn" type="button" class="add-app-custom-btn">
+          <span class="add-app-plus">+</span>
+          <span>Add a custom URL</span>
+        </button>
+        <div class="modal-actions">
+          <div></div>
+          <div class="modal-btns">
+            <button class="modal-btn modal-btn-cancel" id="add-app-cancel-1" type="button">Cancel</button>
+          </div>
+        </div>
       </div>
 
-      <p class="notes-subtitle">
-        A personal scratch space for quick notes and todos.
-        Press <kbd>Enter</kbd> to add, <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line. Everything stays on this Mac.
-      </p>
+      <!-- Step 2: details -->
+      <div class="add-app-step hidden" data-step="2">
+        <div id="add-app-preview" class="add-app-preview">
+          <span class="add-app-preview-icon"></span>
+          <span class="add-app-preview-label"></span>
+        </div>
 
-      <textarea id="notes-input" class="modal-textarea modal-textarea-sm"
-        placeholder="Type a note and press Enter… (Shift+Enter for a new line)"></textarea>
+        <label class="modal-label" for="add-app-label">Display name</label>
+        <input id="add-app-label" type="text" class="modal-input" maxlength="60">
 
-      <ul id="notes-list" class="notes-list"></ul>
+        <label class="modal-label" for="add-app-url">URL</label>
+        <input id="add-app-url" type="url" class="modal-input" placeholder="https://example.com">
+        <div id="add-app-url-hint" class="add-app-hint"></div>
 
-      <div id="notes-empty" class="notes-empty hidden">
-        Nothing here yet. Type something above and press Enter.
+        <label class="modal-label" for="add-app-link-account">Sign in with</label>
+        <select id="add-app-link-account" class="modal-input"></select>
+        <div class="add-app-hint">
+          Sharing an email account's sign-in lets "Sign in with Google" / "Sign in with Microsoft" pick up your existing session.
+        </div>
+
+        <label class="modal-label">Accent colour</label>
+        <div id="add-app-colors" class="add-app-colors"></div>
+
+        <div class="modal-actions">
+          <button id="add-app-back" type="button" class="modal-link">← Back</button>
+          <div class="modal-btns">
+            <button class="modal-btn modal-btn-cancel" id="add-app-cancel-2" type="button">Cancel</button>
+            <button class="modal-btn modal-btn-submit" id="add-app-save"   type="button">Add</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generic confirm modal — used for destructive actions (remove app, etc.).
+       Title / message / button label are set programmatically. -->
+  <div id="confirm-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div class="modal-dialog confirm-dialog">
+      <h2 id="confirm-title" class="modal-title">Confirm</h2>
+      <p id="confirm-message" class="confirm-message"></p>
+      <div class="modal-actions">
+        <div></div>
+        <div class="modal-btns">
+          <button class="modal-btn modal-btn-cancel"  id="confirm-cancel" type="button">Cancel</button>
+          <button class="modal-btn modal-btn-submit"  id="confirm-ok"     type="button">OK</button>
+        </div>
       </div>
     </div>
   </div>

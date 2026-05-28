@@ -27,17 +27,27 @@ jobs:
             build_cmd: dist:mac
             build_args: --universal
             artifact_name: mac-build
-            artifact_path: dist/*.dmg
+            artifact_path: |
+              dist/*.dmg
+              dist/*.zip
+              dist/latest-mac.yml
+              dist/*.blockmap
           - os: windows-latest
             build_cmd: dist:win
             build_args: ""
             artifact_name: win-build
-            artifact_path: dist/*.exe
+            artifact_path: |
+              dist/*.exe
+              dist/latest.yml
+              dist/*.blockmap
           - os: ubuntu-latest
             build_cmd: dist:linux
             build_args: ""
             artifact_name: linux-build
-            artifact_path: dist/*.AppImage
+            artifact_path: |
+              dist/*.AppImage
+              dist/latest-linux.yml
+              dist/*.blockmap
 
     steps:
       - name: Checkout
@@ -144,7 +154,11 @@ jobs:
           name: ${{ github.ref_name }}
           body: "See CHANGELOG.md for what's new in this release."
           files: release-files/*
-          make_latest: true
+          # A semver pre-release tag (one containing a hyphen, e.g.
+          # v1.3.0-beta.1) is flagged as a GitHub pre-release and is NOT marked
+          # "Latest", so stable users are never auto-served a testing build.
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          make_latest: ${{ !contains(github.ref_name, '-') }}
 
   # ── After the release is published, nudge mailwing.app to rebuild ───────────
   refresh-site:

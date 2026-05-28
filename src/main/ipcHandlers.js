@@ -4,7 +4,9 @@ const { ipcMain, nativeTheme, Menu, BrowserWindow, app, shell } = require('elect
 const os = require('os');
 const { IPC }       = require('../shared/constants');
 const { PROVIDERS } = require('../shared/providers');
+const { APPS }      = require('../shared/apps');
 const notes         = require('./notes');
+const appsManager   = require('./appsManager');
 
 let registered = false;
 
@@ -54,9 +56,25 @@ function register({ win, viewManager, accounts, tray, updateChecker }) {
   });
 
   ipcMain.on(IPC.REMOVE_ACCOUNT, (_e, { accountId }) => {
+    // Apps linked to this email account get unlinked before the account is
+    // removed: their views are torn down so the next open creates a fresh
+    // standalone partition, and their store entries are updated to clear
+    // linkedAccountId. The email's session partition stays on disk (Electron
+    // garbage-collects unused partitions over time) so any data the apps
+    // wrote there isn't yanked from under them while they're still live.
+    const linkedApps = appsManager.getApps().filter(a => a.linkedAccountId === accountId);
+    for (const app of linkedApps) {
+      if (viewManager.destroyAppView) viewManager.destroyAppView(app.id);
+      appsManager.updateApp(app.id, { linkedAccountId: null });
+    }
+
     viewManager.destroyAccountViews(accountId);
     accounts.removeAccount(accountId);
+
     win.webContents.send(IPC.ACCOUNTS_UPDATED, accounts.getAccounts());
+    if (linkedApps.length > 0) {
+      win.webContents.send(IPC.APPS_UPDATED, appsManager.getApps());
+    }
     tray.updateContextMenu();
   });
 
@@ -110,6 +128,19 @@ function register({ win, viewManager, accounts, tray, updateChecker }) {
       {
         label: 'Remove Account',
         click: () => {
+          // If any apps are linked to this account, defer the actual remove
+          // to the renderer's confirm modal so the user can see the impact.
+          // The renderer fires REMOVE_ACCOUNT once they confirm; that handler
+          // does the unlink + destroy + remove.
+          const linkedApps = appsManager.getApps().filter(a => a.linkedAccountId === accountId);
+          if (linkedApps.length > 0) {
+            win.webContents.send(IPC.REQUEST_ACCOUNT_REMOVE, {
+              accountId,
+              linkedApps: linkedApps.map(a => ({ id: a.id, label: a.label })),
+            });
+            return;
+          }
+          // No linked apps → preserve the previous instant-remove behaviour.
           viewManager.destroyAccountViews(accountId);
           accounts.removeAccount(accountId);
           win.webContents.send(IPC.ACCOUNTS_UPDATED, accounts.getAccounts());
@@ -173,8 +204,12 @@ function register({ win, viewManager, accounts, tray, updateChecker }) {
   });
 
   // ── Update notifications ─────────────────────────────────────────────────
-  // The banner UI calls these from the renderer when the user clicks Download
-  // or Dismiss. Notification-only: no auto-download (would need code signing).
+  // The banner UI calls these from the renderer. electron-updater downloads in
+  // the background; INSTALL_UPDATE applies the staged update and relaunches.
+
+  ipcMain.on(IPC.INSTALL_UPDATE, () => {
+    if (updateChecker) updateChecker.quitAndInstall();
+  });
 
   ipcMain.on(IPC.DISMISS_UPDATE, (_e, { version }) => {
     if (updateChecker) updateChecker.dismiss(version);
@@ -184,6 +219,126 @@ function register({ win, viewManager, accounts, tray, updateChecker }) {
     if (typeof url === 'string' && /^https:\/\//.test(url)) {
       shell.openExternal(url);
     }
+  });
+
+  // ── Apps Panel ────────────────────────────────────────────────────────────
+
+  const broadcastApps = () => {
+    if (!win.isDestroyed()) win.webContents.send(IPC.APPS_UPDATED, appsManager.getApps());
+  };
+
+  ipcMain.handle(IPC.APPS_GET_ALL, () => appsManager.getApps());
+
+  ipcMain.handle(IPC.APPS_GET_REGISTRY, () => APPS);
+
+  ipcMain.handle(IPC.APPS_GET_HIBERNATED, () =>
+    viewManager.getHibernatedAppIds ? Array.from(viewManager.getHibernatedAppIds()) : []
+  );
+
+  ipcMain.handle(IPC.APPS_ADD, (_e, { input }) => {
+    if (!input || typeof input.label !== 'string' || typeof input.url !== 'string') return null;
+    // Whitelist before passing to appsManager so the renderer can't write
+    // arbitrary fields into the store.
+    const safeInput = {
+      label:           input.label,
+      url:             input.url,
+      registryKey:     input.registryKey || null,
+      accentColor:     input.accentColor || null,
+      linkedAccountId: input.linkedAccountId || null,
+    };
+    const id = appsManager.addApp(safeInput);
+    broadcastApps();
+    return id;
+  });
+
+  ipcMain.handle(IPC.APPS_REMOVE, async (_e, { id }) => {
+    // Look up the app BEFORE destroying its view so we know whether it's
+    // linked — a linked app shares its session with an email account, and we
+    // must not wipe that shared partition's storage on remove.
+    const app = appsManager.getApps().find(a => a.id === id);
+    const wasLinked = !!(app && app.linkedAccountId);
+
+    if (viewManager.destroyAppView) viewManager.destroyAppView(id);
+    appsManager.removeApp(id);
+
+    if (!wasLinked) {
+      // Standalone partition: clear on-disk session data so the partition
+      // doesn't leak after the entry is gone. A subsequent re-add of the
+      // same app prompts a fresh login.
+      try {
+        const { session } = require('electron');
+        await session.fromPartition('persist:mailwing-app-' + id).clearStorageData();
+      } catch { /* ignore — session may not exist */ }
+    }
+    broadcastApps();
+    return true;
+  });
+
+  ipcMain.handle(IPC.APPS_UPDATE, (_e, { id, patch }) => {
+    if (!id || !patch || typeof patch !== 'object') return false;
+    // Whitelist keys so the renderer can't smuggle arbitrary fields in.
+    const ALLOWED = ['label', 'url', 'accentColor', 'linkedAccountId'];
+    const safePatch = {};
+    for (const k of ALLOWED) if (k in patch) safePatch[k] = patch[k];
+    appsManager.updateApp(id, safePatch);
+    broadcastApps();
+    return true;
+  });
+
+  ipcMain.on(IPC.APPS_PANEL_OPEN, () => {
+    if (viewManager.setAppsPanelOpen) viewManager.setAppsPanelOpen(true);
+  });
+
+  ipcMain.on(IPC.APPS_PANEL_CLOSE, () => {
+    if (viewManager.setAppsPanelOpen) viewManager.setAppsPanelOpen(false);
+  });
+
+  ipcMain.on(IPC.APPS_SWITCH, (_e, { entryId }) => {
+    if (!entryId || entryId === 'notes') {
+      if (viewManager.showAppEntry) viewManager.showAppEntry('notes');
+      return;
+    }
+    const app = appsManager.getApps().find(a => a.id === entryId);
+    if (!app) return;
+    const registryEntry = app.registryKey ? APPS[app.registryKey] : null;
+    if (viewManager.showApp) viewManager.showApp(app, registryEntry);
+  });
+
+  ipcMain.on(IPC.APPS_SHOW_CONTEXT_MENU, (event, { id }) => {
+    const senderWin = BrowserWindow.fromWebContents(event.sender) || win;
+    const app       = appsManager.getApps().find(a => a.id === id);
+    if (!app) return;
+
+    // Use the same palette as email accounts so the visual language matches.
+    const APP_COLOR_OPTIONS = [
+      { label: 'Blue',                color: '#1a73e8' },
+      { label: 'Red',                 color: '#d93025' },
+      { label: 'Green',               color: '#188038' },
+      { label: 'Purple',              color: '#a142f4' },
+      { label: 'Orange',              color: '#e8710a' },
+      { label: 'Teal',                color: '#0097a7' },
+      { label: 'Pink',                color: '#e91e63' },
+      { label: 'Yellow',              color: '#f9ab00' },
+      { label: 'No accent',           color: null      },
+    ];
+
+    const colorSubmenu = APP_COLOR_OPTIONS.map(({ label, color }) => ({
+      label,
+      type:    'radio',
+      checked: app.accentColor === color,
+      click:   () => {
+        appsManager.updateApp(id, { accentColor: color });
+        broadcastApps();
+      },
+    }));
+
+    const template = [
+      { label: 'Edit…',         click: () => win.webContents.send(IPC.APPS_EDIT_REQUEST,    { id }) },
+      { label: 'Accent colour', submenu: colorSubmenu },
+      { type:  'separator' },
+      { label: 'Remove…',       click: () => win.webContents.send(IPC.APPS_CONFIRM_REMOVE,  { id }) },
+    ];
+    Menu.buildFromTemplate(template).popup({ window: senderWin });
   });
 }
 

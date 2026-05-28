@@ -2,8 +2,10 @@
 
 const { BrowserView, net } = require('electron');
 const { PROVIDERS }        = require('../shared/providers');
+const { APPS }             = require('../shared/apps');
 const { SIDEBAR_WIDTH, IPC } = require('../shared/constants');
 const sessionManager       = require('./sessionManager');
+const appsManager          = require('./appsManager');
 const notifications        = require('./notifications');
 
 let accounts   = null; // set via init()
@@ -31,6 +33,29 @@ let bannerVisible = false;
 // (the BrowserView covers the area and can't itself be a drag region).
 // Height matches #title-drag-bar in styles.css.
 const TITLEBAR_HEIGHT = process.platform === 'darwin' ? 28 : 0;
+
+// Apps Panel — when open, the apps-list sub-sidebar (220 px) sits between the
+// main sidebar and the content area. Active BrowserViews must shift their x
+// bounds to leave that strip uncovered. Width matches #apps-list in styles.css.
+const APP_SIDEBAR_WIDTH = 220;
+let appsPanelOpen        = false;
+let preAppsPanelActiveKey = null; // mail viewKey to restore when the panel closes
+
+// Apps BrowserViews. Keyed by appId; lazily created on first show. Notes is a
+// special case (no view — renderer paints #apps-notes-view directly).
+const appViews   = new Map();
+let activeAppId  = null;
+
+// Live limit + LRU. When the user opens a 6th app, the least-recently-used
+// live app is hibernated: its BrowserView is destroyed and its appId moves
+// into `hibernatedApps`. The session partition (cookies, IndexedDB, cache)
+// stays on disk so rehydration is fast and the user lands authenticated.
+const MAX_LIVE_APPS = 5;
+const appLRU         = []; // appIds, oldest first; bumped on showApp
+const hibernatedApps = new Set();
+// Auto-hide loading overlay if did-finish-load doesn't fire (rare, but a
+// loading spinner stuck forever would be worse than the wrong final state).
+const LOADING_TIMEOUT_MS = 30_000;
 
 // Subdomain patterns used by every provider's sign-in / auth flow. The
 // post-popup-close handler reloads the parent BrowserView only when a popup
@@ -64,12 +89,13 @@ function getViewBounds() {
   const { width, height } = mainWin.getContentBounds();
   // The banner overlays the drag bar when visible, so use whichever is taller
   // rather than stacking — keeps the BrowserView from being pushed down twice.
-  const offset = Math.max(getBannerOffset(), TITLEBAR_HEIGHT);
+  const yOffset = Math.max(getBannerOffset(), TITLEBAR_HEIGHT);
+  const xExtra  = appsPanelOpen ? APP_SIDEBAR_WIDTH : 0;
   return {
-    x:      SIDEBAR_WIDTH,
-    y:      offset,
-    width:  Math.max(1, width  - SIDEBAR_WIDTH),
-    height: Math.max(1, height - offset),
+    x:      SIDEBAR_WIDTH + xExtra,
+    y:      yOffset,
+    width:  Math.max(1, width  - SIDEBAR_WIDTH - xExtra),
+    height: Math.max(1, height - yOffset),
   };
 }
 
@@ -538,6 +564,15 @@ function destroyAllViews() {
   }
   views.clear();
   activeKey = null;
+
+  for (const view of appViews.values()) {
+    try {
+      if (mainWin && !mainWin.isDestroyed()) mainWin.removeBrowserView(view);
+      if (view.webContents && !view.webContents.isDestroyed()) view.webContents.destroy();
+    } catch { /* ignore */ }
+  }
+  appViews.clear();
+  activeAppId = null;
 }
 
 /** Remove all views for an account and clean up. */
@@ -583,18 +618,39 @@ function warmUpMailViews() {
 
 /** Called on window resize — updates the active view's bounds. */
 function relayout() {
+  // When the Apps Panel is open, only the active app view (if any) is on
+  // screen; mail views are off-screen via hideActiveView(). Relayouting the
+  // mail view here would yank it back into view at the wrong bounds.
+  if (appsPanelOpen) {
+    if (!activeAppId) return;
+    const view = appViews.get(activeAppId);
+    if (view && view.webContents && !view.webContents.isDestroyed()) {
+      view.setBounds(getViewBounds());
+    }
+    return;
+  }
   if (!activeKey) return;
   const view = views.get(activeKey);
-  if (view && !view.webContents.isDestroyed()) {
+  if (view && view.webContents && !view.webContents.isDestroyed()) {
     view.setBounds(getViewBounds());
   }
 }
 
 /**
  * Temporarily move the active BrowserView off-screen so HTML overlays
- * (e.g. the bug report modal) can render over the full window.
+ * (e.g. the bug report modal, confirm dialogs) can render over the full
+ * window. When the Apps Panel is open with a live app selected, the
+ * "active" view is that app's BrowserView — without this branch the modal
+ * would render below the still-visible app view.
  */
 function hideActiveView() {
+  if (appsPanelOpen && activeAppId) {
+    const v = appViews.get(activeAppId);
+    if (v && v.webContents && !v.webContents.isDestroyed()) {
+      v.setBounds(getOffscreenBounds());
+    }
+    return;
+  }
   if (!activeKey) return;
   const view = views.get(activeKey);
   if (view && !view.webContents.isDestroyed()) {
@@ -604,6 +660,14 @@ function hideActiveView() {
 
 /** Restore the active BrowserView to its normal on-screen position. */
 function revealActiveView() {
+  if (appsPanelOpen && activeAppId) {
+    const v = appViews.get(activeAppId);
+    if (v && v.webContents && !v.webContents.isDestroyed()) {
+      v.setBounds(getViewBounds());
+      mainWin.setTopBrowserView(v);
+    }
+    return;
+  }
   if (!activeKey) return;
   const view = views.get(activeKey);
   if (view && !view.webContents.isDestroyed()) {
@@ -638,6 +702,351 @@ function broadcastUnread() {
   if (trayModule) trayModule.updateBadge(total);
 }
 
+// ─── Apps Panel ──────────────────────────────────────────────────────────────
+// Lifecycle for app BrowserViews. Hibernation / LRU enforcement lands in the
+// next task; this block already supports lazy creation, switching between
+// apps, panel open/close, and per-app session partitions.
+
+function setAppsPanelOpen(open) {
+  open = !!open;
+  if (open === appsPanelOpen) return;
+
+  if (open) {
+    // Remember the active mail view so we can restore it on close.
+    preAppsPanelActiveKey = activeKey;
+    if (activeKey) hideActiveView();
+    appsPanelOpen = true;
+  } else {
+    // Move every app view off-screen so the mail view can come back unobscured.
+    for (const v of appViews.values()) {
+      if (v.webContents && !v.webContents.isDestroyed()) {
+        v.setBounds(getOffscreenBounds());
+      }
+    }
+    activeAppId   = null;
+    appsPanelOpen = false;
+
+    if (preAppsPanelActiveKey) {
+      const view = views.get(preAppsPanelActiveKey);
+      if (view && view.webContents && !view.webContents.isDestroyed()) {
+        const [accountId, serviceId] = preAppsPanelActiveKey.split(':');
+        showView(accountId, serviceId);
+      }
+      preAppsPanelActiveKey = null;
+    }
+  }
+}
+
+/**
+ * Build the safe-domain list for an app's session: the app URL's hostname,
+ * the registry entry's hostname (when registry-based), plus any explicit
+ * allowedHosts from the registry entry. When the app is linked to an email
+ * account, the linked provider's safeDomains are also folded in so popups
+ * to e.g. accounts.google.com stay in-app rather than being routed to the
+ * OS browser. The ad-blocker treats this list as always-allowed; the popup
+ * handler uses it to decide whether child windows stay in-app on the shared
+ * session.
+ */
+function buildAppSafeDomains(app, registryEntry) {
+  const hosts = new Set();
+  try { hosts.add(new URL(app.url).hostname); } catch { /* invalid URL */ }
+  if (registryEntry && registryEntry.url) {
+    try { hosts.add(new URL(registryEntry.url).hostname); } catch { /* invalid */ }
+  }
+  if (registryEntry && Array.isArray(registryEntry.allowedHosts)) {
+    registryEntry.allowedHosts.forEach(h => h && hosts.add(h));
+  }
+  // Linked apps: include the email provider's safeDomains so SSO popups
+  // (accounts.google.com, login.microsoftonline.com, etc.) stay in-app.
+  if (app && app.linkedAccountId && accounts) {
+    const linkedAccount = accounts.getAccounts().find(a => a.id === app.linkedAccountId);
+    if (linkedAccount) {
+      const provider = PROVIDERS[linkedAccount.provider];
+      if (provider && Array.isArray(provider.safeDomains)) {
+        provider.safeDomains.forEach(h => h && hosts.add(h));
+      }
+    }
+  }
+  return Array.from(hosts);
+}
+
+/**
+ * Hostname safety check for `appLastUrl` writes / reads. Passes when the URL
+ * matches (or is a subdomain of) any of the app's safe hosts. Prevents us
+ * from saving sign-out pages, OAuth redirect intermediaries, or arbitrary
+ * pages reached via a link in the app — only domains the user expects to
+ * land on after a successful login round-trip.
+ */
+function isAppHostAllowed(hostname, app, registryEntry) {
+  if (!hostname) return false;
+  const allowed = buildAppSafeDomains(app, registryEntry);
+  return allowed.some(h => hostname === h || hostname.endsWith('.' + h));
+}
+
+/** Save the current URL for an app, but only if it's still on a safe host. */
+function saveLastUrlIfSafe(app, registryEntry, url) {
+  if (!app || !url) return;
+  let hostname;
+  try { hostname = new URL(url).hostname; } catch { return; }
+  if (isAppHostAllowed(hostname, app, registryEntry)) {
+    appsManager.setLastUrl(app.id, url);
+  }
+}
+
+function createAppView(app, registryEntry) {
+  const safeDomains    = buildAppSafeDomains(app, registryEntry);
+  const linkedAccountId = app.linkedAccountId || null;
+  // Linked apps reuse the email account's session (cookies, ad-blocker filters
+  // already attached at warmup); standalone apps get persist:mailwing-app-<id>.
+  const sess           = sessionManager.getOrCreateAppSession(app.id, safeDomains, linkedAccountId);
+
+  // Pick the URL to load: prefer the saved last URL when it still passes the
+  // hostname safety check (e.g. user was deep inside Cloudflare → /zones/abc),
+  // otherwise fall back to the app's configured default. On a sign-out the
+  // last URL would fail the check, so the user lands on the default and signs
+  // back in.
+  let initialUrl   = app.url;
+  const savedUrl   = appsManager.getLastUrl(app.id);
+  if (savedUrl) {
+    let savedHost;
+    try { savedHost = new URL(savedUrl).hostname; } catch { /* invalid saved url */ }
+    if (savedHost && isAppHostAllowed(savedHost, app, registryEntry)) {
+      initialUrl = savedUrl;
+    }
+  }
+
+  const view = new BrowserView({
+    webPreferences: {
+      session:              sess,
+      contextIsolation:     true,
+      nodeIntegration:      false,
+      spellcheck:           true,
+      backgroundThrottling: false,
+    },
+  });
+
+  mainWin.addBrowserView(view);
+  view.setBounds(getOffscreenBounds());
+
+  view.webContents.loadURL(initialUrl);
+
+  // Recover from renderer crashes — reload the registered default URL.
+  // (Don't use savedUrl here — if a crash was triggered by that page, we'd
+  // loop. Default URL is the safer recovery target.)
+  view.webContents.on('render-process-gone', () => {
+    if (view.webContents.isDestroyed()) return;
+    try { view.webContents.loadURL(app.url); } catch { /* ignore */ }
+  });
+
+  // Popup rule: provider/auth child windows stay in-app on the shared session;
+  // everything else opens in the OS browser. Same approach as mail views.
+  view.webContents.setWindowOpenHandler(({ url }) => {
+    let isSafe = false;
+    try {
+      const { hostname } = new URL(url);
+      isSafe = safeDomains.some(d => hostname === d || hostname.endsWith('.' + d));
+    } catch { /* invalid URL — open externally */ }
+    if (!isSafe) {
+      require('electron').shell.openExternal(url);
+      return { action: 'deny' };
+    }
+    return {
+      action: 'allow',
+      overrideBrowserWindowOptions: {
+        webPreferences: {
+          partition:        'persist:mailwing-app-' + app.id,
+          contextIsolation: true,
+          nodeIntegration:  false,
+        },
+      },
+    };
+  });
+
+  appViews.set(app.id, view);
+  return view;
+}
+
+/**
+ * Switch the right column of the Apps Panel to the given app entry.
+ * Builds the view lazily on first call (or on rehydration after hibernation).
+ * Enforces the live-view limit by hibernating the LRU app when a new sixth
+ * view would push us over.
+ */
+function showApp(app, registryEntry) {
+  if (!app || !app.id) return;
+  if (!appsPanelOpen) return; // defensive — panel must be open to host a view
+
+  let view          = appViews.get(app.id);
+  const willCreate  = !view;
+  const wasHibernated = hibernatedApps.has(app.id);
+
+  if (willCreate) {
+    // About to create — enforce the live limit by hibernating the LRU app
+    // (excluding the one we're about to create).
+    if (appViews.size >= MAX_LIVE_APPS) hibernateLRUApp(app.id);
+    view = createAppView(app, registryEntry);
+  }
+
+  // Move every other app view off-screen — keeps them loaded for instant
+  // return, no reload flicker.
+  for (const [k, v] of appViews) {
+    if (k !== app.id && v.webContents && !v.webContents.isDestroyed()) {
+      v.setBounds(getOffscreenBounds());
+    }
+  }
+
+  activeAppId = app.id;
+  bumpAppLRU(app.id);
+  if (wasHibernated) hibernatedApps.delete(app.id);
+
+  view.setBounds(getViewBounds());
+  mainWin.setTopBrowserView(view);
+
+  // Loading overlay during first-add and rehydration.
+  if (willCreate) startLoadingOverlay(view, app.label || 'Loading…');
+
+  if (willCreate || wasHibernated) broadcastHibernationChange();
+}
+
+function bumpAppLRU(appId) {
+  const idx = appLRU.indexOf(appId);
+  if (idx >= 0) appLRU.splice(idx, 1);
+  appLRU.push(appId);
+}
+
+function dropFromAppLRU(appId) {
+  const idx = appLRU.indexOf(appId);
+  if (idx >= 0) appLRU.splice(idx, 1);
+}
+
+/**
+ * Pick the least-recently-used live app to hibernate, excluding the app
+ * we're about to open. Walks the LRU list from oldest forward — the first
+ * id that still has a live view wins.
+ */
+function pickLRUForHibernation(excludeAppId) {
+  for (const id of appLRU) {
+    if (id === excludeAppId) continue;
+    if (appViews.has(id))    return id;
+  }
+  return null;
+}
+
+function hibernateLRUApp(excludeAppId) {
+  const victimId = pickLRUForHibernation(excludeAppId);
+  if (!victimId) return;
+
+  const view = appViews.get(victimId);
+  if (!view) return;
+
+  // Capture the last URL before we destroy the renderer. On a future
+  // rehydration we re-open the same page (if it's still on a safe host).
+  try {
+    if (view.webContents && !view.webContents.isDestroyed()) {
+      const currentUrl   = view.webContents.getURL();
+      const app          = appsManager.getApps().find(a => a.id === victimId);
+      const registryEntry = app && app.registryKey ? APPS[app.registryKey] : null;
+      saveLastUrlIfSafe(app, registryEntry, currentUrl);
+    }
+  } catch { /* ignore — capture is best-effort */ }
+
+  try {
+    if (mainWin && !mainWin.isDestroyed()) mainWin.removeBrowserView(view);
+    if (view.webContents && !view.webContents.isDestroyed()) view.webContents.destroy();
+  } catch { /* ignore */ }
+
+  appViews.delete(victimId);
+  hibernatedApps.add(victimId);
+  dropFromAppLRU(victimId);
+  if (activeAppId === victimId) activeAppId = null;
+}
+
+function startLoadingOverlay(view, label) {
+  notifyLoadingChanged(true, label);
+  let settled = false;
+  const finish = () => {
+    if (settled) return;
+    settled = true;
+    notifyLoadingChanged(false);
+    if (view && view.webContents && !view.webContents.isDestroyed()) {
+      view.webContents.removeListener('did-finish-load', finish);
+    }
+  };
+  if (view && view.webContents && !view.webContents.isDestroyed()) {
+    view.webContents.once('did-finish-load', finish);
+  }
+  setTimeout(finish, LOADING_TIMEOUT_MS);
+}
+
+function notifyLoadingChanged(loading, label) {
+  if (!mainWin || mainWin.isDestroyed()) return;
+  mainWin.webContents.send(IPC.APPS_LOADING_CHANGED, { loading: !!loading, label: label || '' });
+}
+
+function broadcastHibernationChange() {
+  if (!mainWin || mainWin.isDestroyed()) return;
+  mainWin.webContents.send(IPC.APPS_HIBERNATION_CHANGED, Array.from(hibernatedApps));
+}
+
+/**
+ * Renderer requested switching to an entry by id. 'notes' is a special case
+ * (no BrowserView; the renderer paints #apps-notes-view directly). For real
+ * apps the caller in ipcHandlers will resolve the full config and call showApp.
+ */
+function showAppEntry(entryId) {
+  if (entryId === 'notes' || !entryId) {
+    // Notes selected — hide any active app view so the renderer's notes
+    // pane is visible on top of the (empty) content area.
+    if (activeAppId) {
+      const v = appViews.get(activeAppId);
+      if (v && v.webContents && !v.webContents.isDestroyed()) {
+        v.setBounds(getOffscreenBounds());
+      }
+      activeAppId = null;
+    }
+  }
+  // Real app entries are switched via showApp() — see ipcHandlers.js.
+}
+
+function destroyAppView(appId) {
+  const view = appViews.get(appId);
+  if (view) {
+    try {
+      if (mainWin && !mainWin.isDestroyed()) mainWin.removeBrowserView(view);
+      if (view.webContents && !view.webContents.isDestroyed()) view.webContents.destroy();
+    } catch { /* ignore */ }
+    appViews.delete(appId);
+  }
+  if (activeAppId === appId) activeAppId = null;
+  dropFromAppLRU(appId);
+  const wasHibernated = hibernatedApps.delete(appId);
+  sessionManager.destroyAppSession(appId);
+  if (wasHibernated) broadcastHibernationChange();
+}
+
+/** Current set of hibernated app IDs (snapshot — caller can mutate freely). */
+function getHibernatedAppIds() {
+  return new Set(hibernatedApps);
+}
+
+/**
+ * Capture the current URL of every live app view to appsManager.appLastUrl.
+ * Called from before-quit so a relaunch lands each app where the user left
+ * off. Hostname safety still applies — pages we wouldn't have saved on
+ * hibernation (sign-out screens, OAuth redirects) are skipped here too.
+ */
+function captureAllLiveAppUrls() {
+  const apps = appsManager.getApps();
+  for (const [appId, view] of appViews) {
+    if (!view || !view.webContents || view.webContents.isDestroyed()) continue;
+    let currentUrl;
+    try { currentUrl = view.webContents.getURL(); } catch { continue; }
+    const app           = apps.find(a => a.id === appId);
+    const registryEntry = app && app.registryKey ? APPS[app.registryKey] : null;
+    saveLastUrlIfSafe(app, registryEntry, currentUrl);
+  }
+}
+
 module.exports = {
   init,
   setTray,
@@ -652,4 +1061,11 @@ module.exports = {
   hideActiveView,
   revealActiveView,
   setBannerVisible,
+  // Apps Panel
+  setAppsPanelOpen,
+  showApp,
+  showAppEntry,
+  destroyAppView,
+  getHibernatedAppIds,
+  captureAllLiveAppUrls,
 };

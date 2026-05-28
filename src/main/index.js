@@ -231,6 +231,10 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   forceQuit = true;
+  // Save each live app's current URL to appLastUrl BEFORE we tear down
+  // ipcHandlers / BrowserViews — otherwise the relaunch resets every app to
+  // its registry default and the "where I left off" feel is lost.
+  try { viewManager.captureAllLiveAppUrls(); } catch { /* best-effort */ }
   ipcHandlers.cleanup();
   tray.destroy();
 });

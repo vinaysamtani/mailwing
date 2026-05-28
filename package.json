@@ -12,7 +12,8 @@
     "dist:linux": "electron-builder --linux"
   },
   "dependencies": {
-    "electron-store": "^8.2.0"
+    "electron-store": "^8.2.0",
+    "electron-updater": "^6.3.9"
   },
   "devDependencies": {
     "@electron/notarize": "^2.5.0",
@@ -39,6 +40,11 @@
       }
     ],
     "afterSign": "scripts/notarize.js",
+    "publish": {
+      "provider": "github",
+      "owner": "vinaysamtani",
+      "repo": "mailwing"
+    },
     "mac": {
       "category": "public.app-category.productivity",
       "icon": "build/icon.png",
@@ -47,6 +53,9 @@
       "target": [
         {
           "target": "dmg"
+        },
+        {
+          "target": "zip"
         }
       ]
     },

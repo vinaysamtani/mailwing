@@ -26,9 +26,31 @@ const IPC = {
   BANNER_VISIBLE:      'banner-visible',
   DISMISS_UPDATE:      'dismiss-update',
   OPEN_RELEASE_PAGE:   'open-release-page',
+  INSTALL_UPDATE:      'install-update',
 
   // renderer → main (invoke = async request/response)
   GET_SYSTEM_INFO:   'get-system-info',
+
+  // ── Apps Panel ────────────────────────────────────────────────────────────
+  // renderer → main (invoke)
+  APPS_GET_ALL:           'apps-get-all',
+  APPS_ADD:               'apps-add',
+  APPS_REMOVE:            'apps-remove',
+  APPS_UPDATE:            'apps-update',
+  APPS_GET_HIBERNATED:    'apps-get-hibernated',
+  APPS_GET_REGISTRY:      'apps-get-registry',
+  // renderer → main (send)
+  APPS_SWITCH:            'apps-switch',
+  APPS_PANEL_OPEN:        'apps-panel-open',
+  APPS_PANEL_CLOSE:       'apps-panel-close',
+  APPS_SHOW_CONTEXT_MENU: 'apps-show-context-menu',
+  // main → renderer (push)
+  APPS_UPDATED:               'apps-updated',
+  APPS_HIBERNATION_CHANGED:   'apps-hibernation-changed',
+  APPS_LOADING_CHANGED:       'apps-loading-changed',
+  APPS_EDIT_REQUEST:          'apps-edit-request',
+  APPS_CONFIRM_REMOVE:        'apps-confirm-remove',
+  REQUEST_ACCOUNT_REMOVE:     'request-account-remove',
 
   // main → renderer (push)
   ACCOUNTS_UPDATED:  'accounts-updated',
@@ -37,6 +59,8 @@ const IPC = {
   SHOW_BUG_REPORT:   'show-bug-report',
   NOTES_UPDATED:     'notes-updated',
   UPDATE_AVAILABLE:  'update-available',
+  UPDATE_PROGRESS:   'update-progress',
+  UPDATE_READY:      'update-ready',
 };
 
 module.exports = { SIDEBAR_WIDTH, IPC };

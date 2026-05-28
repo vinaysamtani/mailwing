@@ -9,6 +9,12 @@ const VISIBILITY_PRELOAD = path.join(__dirname, 'preload-visibility.js');
 // Cache so we never create two sessions for the same account
 const sessions = new Map();
 
+// Apps Panel sessions live in a parallel cache keyed by appId. We keep them
+// separate so the email-side destroySession(accountId) can't accidentally drop
+// an app session with the same UUID (unlikely with the 'app_' prefix, but the
+// separation also makes the code self-documenting).
+const appSessions = new Map();
+
 /**
  * Returns (or creates) an Electron Session for a given account.
  * Each account gets its own persistent partition: persist:mailwing-{accountId}
@@ -123,4 +129,64 @@ function destroySession(accountId) {
   sessions.delete(accountId);
 }
 
-module.exports = { getOrCreateSession, destroySession };
+/**
+ * Returns (or creates) an Electron Session for an Apps Panel entry.
+ *
+ * Standalone (default): partition is `persist:mailwing-app-{appId}` — fully
+ * isolated cookies / localStorage / IndexedDB, like the previous behaviour.
+ *
+ * Linked (when `linkedAccountId` is set): reuses the email account's session
+ * from `sessions.get(linkedAccountId)`. The app's BrowserView then shares
+ * cookies with that mail view — "Sign in with Google" inside the app sees the
+ * existing Gmail session and auto-picks the account. The ad-blocker /
+ * CSP-stripping handlers were already attached when the email session was
+ * created at warmup, so we explicitly DO NOT re-attach (Electron's webRequest
+ * is single-listener: re-attaching would replace the email's safeDomains list
+ * with this app's, and a future linked app could replace it again).
+ *
+ * @param {string}        appId
+ * @param {string[]}      safeDomains       Used only on the standalone path.
+ * @param {string | null} linkedAccountId   When set, return the email session.
+ * @returns {Electron.Session}
+ */
+function getOrCreateAppSession(appId, safeDomains, linkedAccountId) {
+  if (linkedAccountId) {
+    // Fast path: reuse the email account's session. Warmup creates email
+    // sessions for every account at startup, so this hits the cache in
+    // practice.
+    if (sessions.has(linkedAccountId)) return sessions.get(linkedAccountId);
+    // Edge case: linked but not yet warmed (e.g. account just added). Fall
+    // through to a standalone partition so we don't block; the linkage will
+    // take effect after the next view rebuild.
+    console.warn('[apps] linkedAccountId', linkedAccountId, 'has no email session yet — falling back to standalone');
+  }
+
+  if (appSessions.has(appId)) return appSessions.get(appId);
+
+  const sess = session.fromPartition('persist:mailwing-app-' + appId, { cache: true });
+
+  // Force visibilityState = 'visible' inside the renderer so SPAs don't suspend
+  // when their BrowserView is moved off-screen (matches the email behaviour).
+  sess.setPreloads([VISIBILITY_PRELOAD]);
+
+  // The ad-blocker reads safeDomains off whatever object we pass; a synthetic
+  // config with just that field is enough — it also strips X-Frame-Options /
+  // CSP frame-ancestors so OAuth iframes don't get blocked.
+  attachAdBlocker(sess, { safeDomains: safeDomains || [] });
+  attachNotificationPermission(sess);
+
+  appSessions.set(appId, sess);
+  return sess;
+}
+
+/** Remove an app session from the cache (called when an app entry is deleted). */
+function destroyAppSession(appId) {
+  appSessions.delete(appId);
+}
+
+module.exports = {
+  getOrCreateSession,
+  destroySession,
+  getOrCreateAppSession,
+  destroyAppSession,
+};
