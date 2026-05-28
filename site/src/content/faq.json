@@ -8,8 +8,8 @@
     "a": "No. Mailwing wraps your provider's own web interface in an isolated session per account — Gmail talks to Google, Outlook talks to Microsoft, and so on. Mailwing itself never sees your messages and routes nothing through any intermediary."
   },
   {
-    "q": "Why is the app unsigned?",
-    "a": "Code signing certificates cost hundreds of dollars a year per platform. Mailwing is a one-person open-source project — until that changes, you'll see a first-launch trust step on macOS and Windows. The trade-off is full source transparency on GitHub."
+    "q": "Is Mailwing signed and safe to open?",
+    "a": "On macOS, yes — Mailwing is signed with an Apple Developer ID and notarized by Apple, so it opens with a normal double-click. On Windows there's no code-signing certificate yet, so SmartScreen still shows a one-time \"More info → Run anyway\" step on first launch. Either way, every build is produced in the open by GitHub Actions, so you can audit exactly what shipped."
   },
   {
     "q": "Can I add a provider that isn't on the list?",

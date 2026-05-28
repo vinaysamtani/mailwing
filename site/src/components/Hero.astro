@@ -19,12 +19,16 @@ const { release } = Astro.props;
   <div class="container hero__inner">
     <div class="hero__copy">
       <VersionBadge version={release.version} publishedAt={release.publishedAt} href={release.htmlUrl} />
+      <p class="hero__kicker">Your inbox, <span>on the wing.</span></p>
       <h1 class="hero__title">
-        Your inbox,
-        <span class="hero__title-accent">on the wing.</span>
+        All your email accounts,
+        <span class="hero__title-accent">in one native app.</span>
       </h1>
       <p class="hero__sub">
-        Six email providers. One native desktop app. Zero browser tabs.
+        Mailwing puts your real Gmail, Outlook, Zoho, Fastmail, Yahoo and
+        ProtonMail inboxes into one native desktop window — with live unread
+        counts and notifications across every account. No browser tabs, no new
+        client to learn.
       </p>
       <div class="hero__dots">
         <ProviderDots size="md" animate />
@@ -82,8 +86,22 @@ const { release } = Astro.props;
   @media (min-width: 960px) {
     .hero__inner { grid-template-columns: 1.1fr 1fr; gap: var(--space-16); }
   }
-  .hero__title {
+  .hero__kicker {
     margin-top: var(--space-6);
+    margin-bottom: 0;
+    font-size: 14px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+  }
+  .hero__kicker span {
+    font-style: italic;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--accent-deep);
+  }
+  .hero__title {
+    margin-top: var(--space-2);
     margin-bottom: var(--space-4);
     font-variation-settings: "opsz" 144, "wght" 600, "SOFT" 50;
   }
@@ -96,7 +114,7 @@ const { release } = Astro.props;
   .hero__sub {
     font-size: clamp(1.05rem, 1vw + 0.85rem, 1.25rem);
     color: var(--text-muted);
-    max-width: 32ch;
+    max-width: 48ch;
     margin-bottom: var(--space-6);
   }
   .hero__dots { margin-bottom: var(--space-8); }

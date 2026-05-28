@@ -19,7 +19,7 @@ const linux = release.assets.linux
   <div class="container">
     <header class="install__header">
       <h2>Install in one line.</h2>
-      <p class="install__lede">Pick the channel that matches your OS. Mailwing is unsigned — first launch needs a single trust step per platform.</p>
+      <p class="install__lede">Pick the channel that matches your OS. macOS builds are signed and notarized; on Windows the first launch needs a one-time SmartScreen confirmation.</p>
     </header>
 
     <div class="install-tabs">
@@ -41,8 +41,8 @@ const linux = release.assets.linux
         <p class="install-tabs__or">Or via Homebrew:</p>
         <CodeBlock code={brew} label="terminal" />
         <p class="install-tabs__note">
-          First launch: right-click Mailwing in <code>/Applications</code> → <strong>Open</strong>.
-          <a href="/download/mac#gatekeeper">Why?</a>
+          Signed &amp; notarized by Apple — opens with a normal double-click.
+          <a href="/download/mac#signing">Details</a>
         </p>
       </div>
 

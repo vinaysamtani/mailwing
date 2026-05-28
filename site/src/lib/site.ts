@@ -1,8 +1,8 @@
 export const SITE = {
   name: 'Mailwing',
-  tagline: 'Your inbox, on the wing.',
+  tagline: 'All your email accounts in one native app',
   description:
-    'Six email providers in one native desktop app. Gmail, Outlook, Zoho, Fastmail, Yahoo, ProtonMail. Free and open source.',
+    'Mailwing brings your real Gmail, Outlook, Zoho, Fastmail, Yahoo and ProtonMail inboxes into one native desktop app — no browser tabs, no new client to learn. Free and open source.',
   url: import.meta.env.SITE ?? 'https://mailwing.app',
   ogImage: '/img/social-preview.png',
   repo: 'https://github.com/vinaysamtani/mailwing',

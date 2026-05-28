@@ -5,7 +5,7 @@ import { getLatestRelease } from '@/lib/releases';
 import { SITE } from '@/lib/site';
 
 const release = await getLatestRelease();
-const xattr = `xattr -d com.apple.quarantine /Applications/Mailwing.app`;
+const xattr = `xattr -dr com.apple.quarantine /Applications/Mailwing.app`;
 const brew  = `brew install --cask ${SITE.brewTap}`;
 ---
 <DownloadPageLayout os="mac" osLabel="macOS" release={release}>
@@ -20,30 +20,17 @@ const brew  = `brew install --cask ${SITE.brewTap}`;
   <ol>
     <li>Click <strong>Download</strong> above to grab the DMG.</li>
     <li>Open the DMG and drag <strong>Mailwing</strong> to <code>/Applications</code>.</li>
-    <li>First launch: right-click the app icon → <strong>Open</strong> → <strong>Open</strong>.</li>
+    <li>Double-click to open — that's it.</li>
   </ol>
 
-  <h2 id="gatekeeper">First-launch Gatekeeper</h2>
+  <h2 id="signing">Signed &amp; notarized</h2>
   <p>
-    Mailwing isn't yet signed with an Apple Developer ID (signing fees run hundreds of dollars
-    a year per platform — out of scope for a one-person OSS project today). macOS will refuse
-    the first double-click on an unsigned app. Three ways to allow it, in order of friendliness:
+    Mailwing is signed with an Apple Developer ID certificate and notarized by Apple, so
+    macOS opens it with a normal double-click — no right-click, no Gatekeeper override.
+    Every build is produced in the open by
+    <a href="https://github.com/vinaysamtani/mailwing/actions" target="_blank" rel="noopener">GitHub Actions</a>,
+    so you can audit exactly what shipped.
   </p>
-  <h3>Option 1 — Right-click → Open (recommended)</h3>
-  <ol>
-    <li>Open <code>/Applications</code> in Finder.</li>
-    <li>Right-click (or Control-click) <strong>Mailwing</strong> → <strong>Open</strong>.</li>
-    <li>In the dialog, click <strong>Open</strong> again. Trust is remembered from then on.</li>
-  </ol>
-  <h3>Option 2 — System Settings</h3>
-  <ol>
-    <li>Try to open Mailwing once (it'll be blocked).</li>
-    <li>Go to <strong>System Settings → Privacy &amp; Security</strong>.</li>
-    <li>Scroll down — there'll be a line saying Mailwing was blocked. Click <strong>Open Anyway</strong>.</li>
-  </ol>
-  <h3>Option 3 — Terminal</h3>
-  <p>If you'd rather strip the quarantine attribute in one go:</p>
-  <CodeBlock code={xattr} label="terminal" />
 
   <h2>Install via Homebrew</h2>
   <p>If you prefer a single command, the Homebrew cask handles download and placement for you:</p>
@@ -57,7 +44,8 @@ const brew  = `brew install --cask ${SITE.brewTap}`;
 
   <h2>Troubleshooting</h2>
   <h3>"Mailwing is damaged and can't be opened"</h3>
-  <p>This is the quarantine attribute, not actual damage. Run Option 3 above (the <code>xattr</code> command).</p>
+  <p>Almost always a corrupted download — re-download the DMG. If it persists, clear the quarantine flag:</p>
+  <CodeBlock code={xattr} label="terminal" />
   <h3>App quits immediately on first launch</h3>
   <p>Open <strong>Console.app</strong>, filter for <code>Mailwing</code>, then try to launch again. If you see a useful stack trace, please <a href={SITE.issues} target="_blank" rel="noopener">open an issue</a> with the log.</p>
   <h3>How do I uninstall?</h3>
