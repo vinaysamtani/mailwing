@@ -13,6 +13,10 @@ const darkMode        = require('./darkMode');
 const ipcHandlers     = require('./ipcHandlers');
 const updateChecker   = require('./updateChecker');
 const sessionManager  = require('./sessionManager');
+const contextMenu     = require('./contextMenu');
+const linkRouter      = require('./linkRouter');
+const inAppBrowser    = require('./inAppBrowser');
+const settings        = require('./settings');
 
 // ─── Performance flags ───────────────────────────────────────────────────────
 // Must be set before app is ready.
@@ -62,11 +66,38 @@ function setAppMenu(win) {
     },
   ];
 
+  // Where links that aren't the provider's own domains should open. Rebuilding
+  // the whole menu on change is what keeps the radio state honest — Electron
+  // menu items are immutable once built.
+  const linkTarget = settings.getLinkTarget();
+  const setLinkTarget = (value) => {
+    settings.setLinkTarget(value);
+    setAppMenu(win);
+  };
+
+  const preferencesSubmenu = [
+    { label: 'Open Links In', enabled: false },
+    {
+      label:   'Default Browser',
+      type:    'radio',
+      checked: linkTarget === settings.LINK_TARGET_BROWSER,
+      click:   () => setLinkTarget(settings.LINK_TARGET_BROWSER),
+    },
+    {
+      label:   'Mailwing',
+      type:    'radio',
+      checked: linkTarget === settings.LINK_TARGET_APP,
+      click:   () => setLinkTarget(settings.LINK_TARGET_APP),
+    },
+  ];
+
   const template = [
     ...(process.platform === 'darwin' ? [{
       label: app.name,
       submenu: [
         { role: 'about' },
+        { type: 'separator' },
+        { label: 'Settings', submenu: preferencesSubmenu },
         { type: 'separator' },
         { role: 'services' },
         { type: 'separator' },
@@ -91,6 +122,11 @@ function setAppMenu(win) {
         { role: 'selectAll' },
       ],
     },
+    // macOS puts preferences under the app menu; everywhere else needs its own
+    // top-level entry or there's nowhere to reach them from.
+    ...(process.platform !== 'darwin'
+      ? [{ label: 'Settings', submenu: preferencesSubmenu }]
+      : []),
     { label: 'Help', submenu: helpSubmenu },
   ];
 
@@ -133,11 +169,17 @@ function createWindow() {
     if (saved.isMaximized) mainWin.maximize();
   });
 
-  // Open any links that try to open a new window in the system browser
+  // Open any links that try to open a new window in the system browser.
+  // These are app-chrome links (GitHub issues, release notes), not mail content,
+  // so they deliberately ignore the link-target preference.
   mainWin.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
   });
+
+  // Right-click in the sidebar shell — makes paste work in the notes textarea,
+  // the bug-report form and the add-app inputs.
+  contextMenu.attach(mainWin.webContents, { getWindow: () => mainWin });
 
   // ── Init all modules ────────────────────────────────────────────────────
   viewManager.init({ win: mainWin, accountsModule: accounts });
@@ -235,6 +277,7 @@ app.on('before-quit', () => {
   // ipcHandlers / BrowserViews — otherwise the relaunch resets every app to
   // its registry default and the "where I left off" feel is lost.
   try { viewManager.captureAllLiveAppUrls(); } catch { /* best-effort */ }
+  inAppBrowser.closeAll();
   ipcHandlers.cleanup();
   tray.destroy();
 });
@@ -316,30 +359,31 @@ function openMailtoInAccount(account, rawUrl) {
 
   // Mirror viewManager's popup rules: provider/auth hosts open in-app on the
   // shared session (passkey, OAuth, "open in new window"); everything else
-  // opens in the OS browser.
-  composeWin.webContents.setWindowOpenHandler(({ url }) => {
-    let isSafe = false;
-    try {
-      const { hostname } = new URL(url);
-      isSafe = provider.safeDomains.some(
-        d => hostname === d || hostname.endsWith('.' + d)
-      );
-    } catch { /* invalid URL → open externally */ }
+  // follows the user's link-target preference.
+  const partition = 'persist:mailwing-' + account.id;
+  composeWin.webContents.setWindowOpenHandler(linkRouter.makeWindowOpenHandler({
+    inAppDomains: provider.inAppDomains || provider.safeDomains,
+    partition,
+    session:      sess,
+    getParent:    () => composeWin,
+  }));
 
-    if (!isSafe) {
-      shell.openExternal(url);
-      return { action: 'deny' };
-    }
-    return {
-      action: 'allow',
-      overrideBrowserWindowOptions: {
-        webPreferences: {
-          partition:        'persist:mailwing-' + account.id,
-          contextIsolation: true,
-          nodeIntegration:  false,
-        },
-      },
-    };
+  linkRouter.guardNavigation(composeWin.webContents, {
+    allowedDomains: provider.safeDomains,
+    partition,
+    session:        sess,
+    getParent:      () => composeWin,
+  });
+
+  // Right-click in the compose body: paste, paste-and-match-style, and the
+  // spellcheck suggestions that spellcheck:true above has been underlining
+  // with no way to act on them.
+  contextMenu.attach(composeWin.webContents, {
+    getWindow:    () => composeWin,
+    openExternal: (url) => linkRouter.openInSystemBrowser(url),
+    openInApp:    (url) => linkRouter.openInBrowserWindow(url, {
+      session: sess, partition, parent: composeWin,
+    }),
   });
 
   composeWin.loadURL(provider.mailtoComposeUrl(rawUrl));

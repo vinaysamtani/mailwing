@@ -1,12 +1,14 @@
 'use strict';
 
-const { BrowserView, net } = require('electron');
+const { BrowserView, net, app } = require('electron');
 const { PROVIDERS }        = require('../shared/providers');
 const { APPS }             = require('../shared/apps');
 const { SIDEBAR_WIDTH, IPC } = require('../shared/constants');
 const sessionManager       = require('./sessionManager');
 const appsManager          = require('./appsManager');
 const notifications        = require('./notifications');
+const contextMenu          = require('./contextMenu');
+const linkRouter           = require('./linkRouter');
 
 let accounts   = null; // set via init()
 let mainWin    = null; // set via init()
@@ -156,39 +158,34 @@ function createView(accountId, serviceId) {
     try { view.webContents.loadURL(service.url); } catch { /* already destroyed */ }
   });
 
-  // Open popups/new windows in the system browser, except for auth-origin
-  // popups which must stay in-app to share the account's session cookies.
-  // Passkey challenges and OAuth flows open child windows that need access
-  // to the same cookies/auth state as the parent page.
-  view.webContents.setWindowOpenHandler(({ url }) => {
-    let isAuthOrigin = false;
-    try {
-      const { hostname } = new URL(url);
-      isAuthOrigin = provider.safeDomains.some(
-        d => hostname === d || hostname.endsWith('.' + d)
-      );
-    } catch { /* invalid URL — fall through to system browser */ }
+  // Popups/new windows: auth and the provider's own apps stay in-app on the
+  // shared session (passkey challenges and OAuth open child windows that need
+  // the parent's cookies); everything else follows the user's link preference.
+  const partition = 'persist:mailwing-' + accountId;
+  view.webContents.setWindowOpenHandler(linkRouter.makeWindowOpenHandler({
+    inAppDomains: provider.inAppDomains || provider.safeDomains,
+    partition,
+    session:      sess,
+    getParent:    () => mainWin,
+  }));
 
-    if (!isAuthOrigin) {
-      require('electron').shell.openExternal(url);
-      return { action: 'deny' };
-    }
+  // Same-tab navigation to a non-provider host would strand the view on an
+  // external page with no way back — route those out instead.
+  linkRouter.guardNavigation(view.webContents, {
+    allowedDomains: provider.safeDomains,
+    partition,
+    session:        sess,
+    getParent:      () => mainWin,
+  });
 
-    // Allow in-app with the same isolated session so auth state is shared.
-    // Use the partition string rather than a session instance — Electron's
-    // setWindowOpenHandler propagates `partition` more reliably through
-    // overrideBrowserWindowOptions than a `session` reference, which fixes
-    // calendar-invite RSVP popups re-prompting for login.
-    return {
-      action: 'allow',
-      overrideBrowserWindowOptions: {
-        webPreferences: {
-          partition:        'persist:mailwing-' + accountId,
-          contextIsolation: true,
-          nodeIntegration:  false,
-        },
-      },
-    };
+  // Right-click: copy/paste, spellcheck suggestions, link and image actions.
+  contextMenu.attach(view.webContents, {
+    allowNavigation: true,
+    getWindow:       () => mainWin,
+    openExternal:    (url) => linkRouter.openInSystemBrowser(url),
+    openInApp:       (url) => linkRouter.openInBrowserWindow(url, {
+      session: sess, partition, parent: mainWin,
+    }),
   });
 
   // After an auth popup closes (post-login, post-passkey), the parent view is
@@ -198,6 +195,15 @@ function createView(accountId, serviceId) {
   // new window) would trigger spurious mailbox reloads on close.
   let reloadingFromPopup = false;
   view.webContents.on('did-create-window', (childWin, details) => {
+    // Popups are real windows (auth, calendar RSVP, "open in new window") and
+    // need their own context menu — otherwise right-click dies again the moment
+    // a sign-in form opens.
+    contextMenu.attach(childWin.webContents, {
+      allowNavigation: true,
+      getWindow:       () => childWin,
+      openExternal:    (url) => linkRouter.openInSystemBrowser(url),
+    });
+
     let sawAuthHost = false;
     const checkHost = (rawUrl) => {
       try {
@@ -305,7 +311,10 @@ function attachUnreadPoller(view, accountId, provider) {
   view.webContents.once('destroyed', () => clearInterval(timer));
 
   // ── Diagnostic (Zoho-only): drill into the nav pane to find the unread count element ──
-  if (provider.id === 'zoho') {
+  // Dev builds only — this dumps the DOM of a signed-in mailbox to stdout, which must
+  // never happen in a shipped binary. Run `npm start` against a real account to collect
+  // selectors, then encode them in providers.js.
+  if (!app.isPackaged && provider.id === 'zoho') {
     let diagnosed = false;
     const runDiag = async () => {
       if (diagnosed || !view || !view.webContents || view.webContents.isDestroyed()) return;
@@ -353,7 +362,8 @@ function attachUnreadPoller(view, accountId, provider) {
   // ── Diagnostic (Outlook-only): discover folder-tree unread counter selectors and
   //    profile-button avatar location for the post-2024 Outlook Web layout.
   //    Remove this block once concrete selectors are encoded in providers.js.
-  if (provider.id === 'outlook') {
+  //    Dev builds only — see the note on the Zoho block above.
+  if (!app.isPackaged && provider.id === 'outlook') {
     let diagnosed = false;
     const runDiag = async () => {
       if (diagnosed || !view || !view.webContents || view.webContents.isDestroyed()) return;
@@ -838,28 +848,32 @@ function createAppView(app, registryEntry) {
     try { view.webContents.loadURL(app.url); } catch { /* ignore */ }
   });
 
-  // Popup rule: provider/auth child windows stay in-app on the shared session;
-  // everything else opens in the OS browser. Same approach as mail views.
-  view.webContents.setWindowOpenHandler(({ url }) => {
-    let isSafe = false;
-    try {
-      const { hostname } = new URL(url);
-      isSafe = safeDomains.some(d => hostname === d || hostname.endsWith('.' + d));
-    } catch { /* invalid URL — open externally */ }
-    if (!isSafe) {
-      require('electron').shell.openExternal(url);
-      return { action: 'deny' };
-    }
-    return {
-      action: 'allow',
-      overrideBrowserWindowOptions: {
-        webPreferences: {
-          partition:        'persist:mailwing-app-' + app.id,
-          contextIsolation: true,
-          nodeIntegration:  false,
-        },
-      },
-    };
+  // Popup rule: the app's own auth/child windows stay in-app on the shared
+  // session; everything else follows the user's link preference. Same approach
+  // as mail views. Apps have no curated inAppDomains, so the computed
+  // safeDomains list doubles as the in-app set here.
+  const appPartition = 'persist:mailwing-app-' + app.id;
+  view.webContents.setWindowOpenHandler(linkRouter.makeWindowOpenHandler({
+    inAppDomains: safeDomains,
+    partition:    appPartition,
+    session:      sess,
+    getParent:    () => mainWin,
+  }));
+
+  linkRouter.guardNavigation(view.webContents, {
+    allowedDomains: safeDomains,
+    partition:      appPartition,
+    session:        sess,
+    getParent:      () => mainWin,
+  });
+
+  contextMenu.attach(view.webContents, {
+    allowNavigation: true,
+    getWindow:       () => mainWin,
+    openExternal:    (url) => linkRouter.openInSystemBrowser(url),
+    openInApp:       (url) => linkRouter.openInBrowserWindow(url, {
+      session: sess, partition: appPartition, parent: mainWin,
+    }),
   });
 
   appViews.set(app.id, view);

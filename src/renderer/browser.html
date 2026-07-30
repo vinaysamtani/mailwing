@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <!-- No remote content is ever loaded into this document — the browsed page
+       lives in a BrowserView below the toolbar. Mirrors index.html's policy. -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self'">
+  <title>Mailwing Browser</title>
+  <link rel="stylesheet" href="browser.css">
+</head>
+<body>
+  <div id="toolbar">
+    <button id="back"    class="nav-btn" title="Back"    aria-label="Back"    disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <button id="forward" class="nav-btn" title="Forward" aria-label="Forward" disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+    <button id="reload"  class="nav-btn" title="Reload"  aria-label="Reload">
+      <svg id="reload-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/>
+      </svg>
+    </button>
+
+    <!-- Read-only: this is a viewer, not an address bar. Origin is emphasised
+         so the user can always tell which site they're actually on. -->
+    <div id="url" title="">
+      <span id="url-origin"></span><span id="url-rest"></span>
+    </div>
+
+    <button id="open-external" title="Open in your default browser">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+        <path d="M15 3h6v6"/><path d="M10 14L21 3"/>
+      </svg>
+      <span>Open in Browser</span>
+    </button>
+  </div>
+
+  <script src="browser.js"></script>
+</body>
+</html>

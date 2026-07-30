@@ -49,6 +49,11 @@ function start({ win }) {
 
   autoUpdater.on('update-downloaded', (info) => {
     downloadReady = true;
+    // Honour the same dismissal as 'update-available'. Without this the banner
+    // reappears a few minutes later when the background download finishes,
+    // making the dismissal look broken. The update is still staged on disk and
+    // autoInstallOnAppQuit will apply it on the next quit either way.
+    if (store.get('dismissedVersion', '') === String(info.version)) return;
     send(IPC.UPDATE_READY, { version: info.version });
   });
 

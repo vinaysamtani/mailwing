@@ -52,6 +52,16 @@ const IPC = {
   APPS_CONFIRM_REMOVE:        'apps-confirm-remove',
   REQUEST_ACCOUNT_REMOVE:     'request-account-remove',
 
+  // ── In-app browser window ─────────────────────────────────────────────────
+  // browser toolbar → main (send)
+  BROWSER_BACK:          'browser-back',
+  BROWSER_FORWARD:       'browser-forward',
+  BROWSER_RELOAD:        'browser-reload',
+  BROWSER_STOP:          'browser-stop',
+  BROWSER_OPEN_EXTERNAL: 'browser-open-external',
+  // main → browser toolbar (push)
+  BROWSER_STATE:         'browser-state',
+
   // main → renderer (push)
   ACCOUNTS_UPDATED:  'accounts-updated',
   UNREAD_UPDATED:    'unread-updated',

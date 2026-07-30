@@ -16,6 +16,18 @@
  *   avatarSelector  string     — CSS selector for the user avatar <img>
  *   mailtoComposeUrl function  — (rawMailtoUrl: string) => string
  *   safeDomains     string[]   — domains the ad-blocker must NOT cancel
+ *   inAppDomains    string[]   — domains whose links must open INSIDE Mailwing on
+ *                                the account's session, regardless of the user's
+ *                                link-target preference. This is auth and the
+ *                                provider's own companion apps: an OAuth or
+ *                                passkey popup handed to the OS browser can't
+ *                                see the account's cookies and the flow dies.
+ *
+ * safeDomains and inAppDomains are deliberately separate lists. They answer
+ * different questions ("don't block this request" vs "keep this link in-app"),
+ * and folding them together means tuning the ad-blocker silently changes link
+ * routing — e.g. bare 'google.com' in safeDomains used to force every Google
+ * search result to open in-app in a chromeless window.
  */
 
 const PROVIDERS = {
@@ -72,6 +84,18 @@ const PROVIDERS = {
       'calendar.google.com',
       'drive.google.com',
       'docs.google.com',
+    ],
+
+    // Note the absence of bare 'google.com' — search results, News, YouTube etc.
+    // are ordinary links and should follow the user's preference, not be forced
+    // in-app the way the old shared safeDomains list did.
+    inAppDomains: [
+      'accounts.google.com',
+      'mail.google.com',
+      'calendar.google.com',
+      'drive.google.com',
+      'docs.google.com',
+      'googleusercontent.com', // attachment / inline-image redirects
     ],
   },
 
@@ -162,6 +186,14 @@ const PROVIDERS = {
       'calendar.zoho.com',
       'workdrive.zoho.com',
       'writer.zoho.com',
+    ],
+
+    // Zoho auth lives on accounts.zoho.<region>, so the apex is required here
+    // rather than a fixed host list.
+    inAppDomains: [
+      'zoho.com',
+      'zohomail.com',
+      'zohopublic.com',
     ],
   },
   outlook: {
@@ -280,6 +312,17 @@ const PROVIDERS = {
       'sfx.ms',              // Microsoft CDN
       'substrate.office.com', // profile photos API
     ],
+
+    // Auth and the Office web apps. Excludes the CDN/storage hosts in
+    // safeDomains — those serve subresources, they're never link targets.
+    inAppDomains: [
+      'microsoftonline.com', // login.microsoftonline.com (auth)
+      'msauth.net',          // auth redirects
+      'live.com',            // personal-account sign-in, onedrive.live.com
+      'office.com',          // outlook.office.com, Word/Excel/PowerPoint online
+      'office365.com',
+      'sharepoint.com',      // OneDrive / SharePoint documents
+    ],
   },
   fastmail: {
     id:    'fastmail',
@@ -338,6 +381,12 @@ const PROVIDERS = {
       'fastmail.net',
       'app.fastmail.com',
       'static.fastmailusercontent.com',
+    ],
+
+    inAppDomains: [
+      'fastmail.com',
+      'fastmail.fm',
+      'fastmail.net',
     ],
   },
 
@@ -402,6 +451,14 @@ const PROVIDERS = {
       'yahooapis.com',
       'yimg.com',
       'yql.yahoo.com',
+      'mail.yahoo.com',
+      'calendar.yahoo.com',
+    ],
+
+    // login.yahoo.com and the mail/calendar apps. Bare 'yahoo.com' is excluded
+    // so Yahoo's news/finance content links follow the user's preference.
+    inAppDomains: [
+      'login.yahoo.com',
       'mail.yahoo.com',
       'calendar.yahoo.com',
     ],
@@ -486,6 +543,15 @@ const PROVIDERS = {
       'calendar.proton.me',
       'drive.proton.me',
       'account.proton.me',
+    ],
+
+    inAppDomains: [
+      'account.proton.me',
+      'mail.proton.me',
+      'calendar.proton.me',
+      'drive.proton.me',
+      'protonmail.com',
+      'protonmail.ch',
     ],
   },
 };
