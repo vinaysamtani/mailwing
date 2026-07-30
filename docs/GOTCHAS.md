@@ -86,43 +86,68 @@ Each entry: short symptom → cause → file:line pointer.
 
 ---
 
-## Passkey / Touch ID login is blocked on macOS without an Apple Developer ID
+## Passkey / Touch ID works in signed builds, never in `npm start`
 
-**Symptom:** When a provider (Gmail, Outlook, etc.) prompts for a passkey or Touch ID, the prompt appears but is stuck — Touch ID never reads, "Cancel" re-opens the same prompt in a loop, login never completes. Chromium logs:
+**Status depends entirely on whether the binary running is signed. These are two different worlds — check which one you're in before debugging anything.**
+
+| | Dev (`npm start`) | Signed release build |
+|---|---|---|
+| Binary | `node_modules/electron/dist/Electron.app` — unsigned | `Mailwing.app`, Developer ID signed + notarised |
+| Passkey / Touch ID | **Cannot work.** OS-level block, no workaround | **Works.** Since v1.2.3 |
+| Expected behaviour | Prompt appears and hangs | Normal ceremony completes |
+
+### Dev builds: passkey cannot work, and that's not a bug to chase
+
+`npm start` runs Electron's stock prebuilt binary, which ships unsigned. Confirm with:
+
+```sh
+codesign -dv node_modules/electron/dist/Electron.app
+spctl -a -vv  node_modules/electron/dist/Electron.app
+```
+
+`code object is not signed at all` / `source=no usable signature` means the binary cannot do passkey on macOS, period.
+
+**Symptom in dev:** the prompt **appears but is stuck** — Touch ID never reads, "Cancel" re-opens the same prompt in a loop, login never completes. Chromium logs:
 
 ```
 FIDO: Cannot start caBLE because process is not self-responsible. Launch from Finder to fix.
 FIDO: Cannot test Bluetooth power status because process is not self-responsible. Launch from Finder to fix.
 ```
 
-**Cause:** macOS will not grant Touch ID / Secure Enclave / Bluetooth (caBLE) access to a binary that doesn't have a usable code signature. The "process not self-responsible" message is what Chromium prints when `SecCodeIsResponsibleProcess` (and related TCC checks) decline to trust the binary. This rejection happens whether the app is launched from a terminal (`npm start`) **or** from Finder, **so long as the binary is unsigned**.
+**Cause:** macOS will not grant Touch ID / Secure Enclave / Bluetooth (caBLE) access to a binary without a usable code signature. "Process not self-responsible" is what Chromium prints when `SecCodeIsResponsibleProcess` and related TCC checks decline to trust the binary. This happens whether launched from a terminal **or** from Finder — the launch path is irrelevant, the missing signature is not.
 
-**Diagnostic — confirm whether your binary is the problem:**
+**To test the passkey flow at all, you must build and sign:** `npm run dist:mac` with a Developer ID in the keychain, then run the produced `.app`. There is no dev shortcut.
+
+### Signed builds: passkey works
+
+v1.2.3 was the first Apple-signed and notarised release, and passkey ceremonies complete normally in it and later. Verify a specific build with:
 
 ```sh
 codesign -d --entitlements - "/Applications/Mailwing.app"
 spctl  -a -vv             "/Applications/Mailwing.app"
 ```
 
-If you see `code object is not signed at all` or `source=no usable signature`, the binary cannot do passkey on macOS, period.
+### A missing prompt is a different problem entirely
 
-**Hard requirements for a passkey-capable build:**
+**Do not read "it never asked me for a passkey" as this bug.** The signature failure mode is a prompt that appears and *hangs*. If no prompt appears and sign-in succeeds anyway, the provider simply chose another method — a password, a remembered-device / "stay signed in" cookie, or no passkey registered for that account. Microsoft in particular treats passkey as one option among several and will default to password.
 
-1. **Apple Developer Program membership** (~USD 99/year). There is no free path — Apple does not issue Developer ID certificates outside this programme.
+To exercise the path deliberately, pick "Sign in with Windows Hello or a security key" (Outlook) or the equivalent explicit passkey option, rather than letting the provider choose. Absence of `FIDO:` lines in the logs means the ceremony was never attempted, not that it was blocked.
+
+### Requirements for a passkey-capable build
+
+1. **Apple Developer Program membership** (~USD 99/year). No free path — Apple does not issue Developer ID certificates outside it.
 2. **A Developer ID Application certificate** in the keychain (or as a base64 `.p12` in CI).
-3. **The six GitHub Actions secrets** referenced in `.github/workflows/release.yml:67-81` (`APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`).
-4. **Notarisation** via the existing `scripts/notarize.js` (already wired up; runs only when `APPLE_ID` is set).
+3. **The `APPLE_*` GitHub Actions secrets** referenced in `.github/workflows/release.yml` (`APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`).
+4. **Notarisation** via `scripts/notarize.js` (already wired up; runs only when `APPLE_ID` is set).
 
-Without those, no entitlement set or code change can make passkey work — entitlements are bound to a signature, and there is no signature.
+Without those, no entitlement set or code change can make passkey work — entitlements bind to a signature, and there is no signature.
 
-**Today's status:** unsigned builds. Passkey login does not work. Recommend password / "use a different sign-in method" fallback in the provider's UI.
-
-**Don't:** chase this through Electron permission handlers. `setPermissionCheckHandler` and `setPermissionRequestHandler` already allow `publickey-credentials-{get,create}` (see `src/main/sessionManager.js`); the gate is below them in macOS.
+**Don't:** chase this through Electron permission handlers. `setPermissionCheckHandler` and `setPermissionRequestHandler` already allow `publickey-credentials-{get,create}` (`src/main/sessionManager.js:106-124`); the gate is below them, in macOS.
 
 **Pointers:**
-- `build/entitlements.mac.plist` — contains the right entitlements (Bluetooth, hardened-runtime exemptions). They take effect *once the binary is signed*.
+- `build/entitlements.mac.plist` — the right entitlements (Bluetooth, hardened-runtime exemptions). They take effect *once the binary is signed*.
 - `scripts/notarize.js` — runs notarisation when `APPLE_ID` is present in the build env.
-- `.github/workflows/release.yml` — CI signing/notarisation pipeline; gated on the six secrets above.
+- `.github/workflows/release.yml` — CI signing/notarisation pipeline.
 
 ---
 
