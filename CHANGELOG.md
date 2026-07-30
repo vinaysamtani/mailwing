@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-07-30
+
+Promotes 1.3.0-beta.1 to stable and adds right-click menus and a choice of where links open.
+
+### Added
+- **Right-click menus.** Right-clicking anywhere in the app previously did nothing — Electron ships no default context menu. There are now native menus in mail views, pinned apps, sign-in popups, compose windows and the sidebar itself, with copy/paste, cut, paste-and-match-style, link and image actions, and web search for a selection.
+- **Spelling suggestions are finally reachable.** Spellcheck was already underlining misspelled words in mail and compose windows, but there was no way to act on it. Right-click an underlined word for corrections, or add it to your dictionary.
+- **Choose where links open.** Links in an email can now open in Mailwing rather than your default browser, in a window with back/forward/reload, the page's address, and an "Open in Browser" button to hand the page off. Set the default under **Settings → Open Links In**; right-click any link to override it for that one link. Defaults to your OS browser, so nothing changes unless you opt in.
+
+### Fixed
+- Diagnostic logging that shipped in 1.3.0-beta.1 no longer runs in released builds. It inspected the page structure of a signed-in mailbox to help identify unread-count and avatar elements, and wrote what it found to the app's console output. It is now limited to development builds.
+- Dismissing an update banner now sticks. Previously the banner reappeared a few minutes later once the background download finished, so dismissing it looked broken.
+- Clicking a link that opens in the same tab no longer strands your mailbox on an external page. Because the main window has no back button, the only way back was restarting the app.
+- Links to a provider's unrelated properties (for example Google search results or Yahoo news) no longer open in a bare in-app window with no navigation controls. They now follow your link preference like any other link, while sign-in and companion apps such as Drive, Docs and Calendar continue to open in-app on your account's session.
+
+### Docs
+- `docs/GOTCHAS.md` now separates passkey behaviour in development builds from signed releases, and records that a *missing* passkey prompt is a different problem from the signature failure mode.
+
 ## [1.3.0-beta.1] - 2026-05-28
 
 > **Pre-release / testing build.** Flagged as a pre-release on GitHub and not marked "Latest", so stable users are never auto-served it. Auto-update keeps beta builds on the beta channel.
